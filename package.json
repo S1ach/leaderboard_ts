@@ -1,0 +1,41 @@
+{
+  "name": "leaderboard-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Seasonal leaderboard: PostgreSQL (source of truth) + transactional outbox + Redis sorted set",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev:api": "tsx watch src/api.ts",
+    "dev:worker": "tsx watch src/worker.ts",
+    "start:api": "node dist/api.js",
+    "start:worker": "node dist/worker.js",
+    "migrate": "tsx src/cli/migrate.ts",
+    "create-season": "tsx src/cli/create-season.ts",
+    "rebuild-leaderboard": "tsx src/cli/rebuild.ts",
+    "seed": "tsx src/cli/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "k6:write": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 grafana/k6:0.54.0 run /scripts/write.js",
+    "k6:read": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 grafana/k6:0.54.0 run /scripts/read.js",
+    "k6:mixed": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 grafana/k6:0.54.0 run /scripts/mixed.js"
+  },
+  "dependencies": {
+    "fastify": "^5.1.0",
+    "ioredis": "^5.4.1",
+    "pg": "^8.13.1",
+    "pg-copy-streams": "^6.0.6",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/pg": "^8.11.10",
+    "@types/pg-copy-streams": "^1.2.5",
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

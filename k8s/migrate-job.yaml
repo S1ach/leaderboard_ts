@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: leaderboard-migrate
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: leaderboard-service:dev
+          command: ["node", "dist/cli/migrate.js"]
+          envFrom:
+            - configMapRef: { name: leaderboard-config }
+            - secretRef: { name: leaderboard-secrets }

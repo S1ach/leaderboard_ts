@@ -1,0 +1,39 @@
+# RFC-001 §5.5 / §7: exactly one active worker (leader lock in PostgreSQL); the
+# second replica is a warm standby. Not scaled by HPA: the watermark requires a
+# single sequential writer per season. To scale, shard by hash(player_id) with a
+# worker + watermark per shard.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaderboard-worker
+  labels: { app: leaderboard-worker }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: leaderboard-worker }
+  template:
+    metadata:
+      labels: { app: leaderboard-worker }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+    spec:
+      terminationGracePeriodSeconds: 15
+      containers:
+        - name: worker
+          image: leaderboard-service:dev
+          command: ["node", "dist/worker.js"]
+          ports:
+            - { containerPort: 9100, name: metrics }
+          envFrom:
+            - configMapRef: { name: leaderboard-config }
+            - secretRef: { name: leaderboard-secrets }
+          env:
+            - { name: WORKER_METRICS_PORT, value: "9100" }
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+          livenessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 10
+            periodSeconds: 15

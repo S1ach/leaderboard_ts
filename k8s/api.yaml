@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaderboard-api
+  labels: { app: leaderboard-api }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: leaderboard-api }
+  template:
+    metadata:
+      labels: { app: leaderboard-api }
+    spec:
+      terminationGracePeriodSeconds: 20
+      containers:
+        - name: api
+          image: leaderboard-service:dev
+          command: ["node", "dist/api.js"]
+          ports:
+            - { containerPort: 3000, name: http }
+          envFrom:
+            - configMapRef: { name: leaderboard-config }
+            - secretRef: { name: leaderboard-secrets }
+          env:
+            - { name: PORT, value: "3000" }
+          resources:
+            requests: { cpu: "500m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: leaderboard-api
+spec:
+  selector: { app: leaderboard-api }
+  ports:
+    - { port: 80, targetPort: http }
+---
+# RFC-001 §7: start with CPU; in production add RPS-per-pod / p95 latency via Prometheus Adapter.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: leaderboard-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: leaderboard-api
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 }
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300

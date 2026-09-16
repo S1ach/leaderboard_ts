@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: leaderboard-config
+data:
+  REDIS_URL: "redis://leaderboard-redis:6379/0"
+  PG_POOL_SIZE: "10"          # replicas × PG_POOL_SIZE must stay below max_connections (use PgBouncer beyond that)
+  SEASON_CACHE_TTL_MS: "1000"
+  WORKER_BATCH_SIZE: "500"
+  WORKER_POLL_INTERVAL_MS: "50"
+  LOG_LEVEL: "info"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: leaderboard-secrets
+type: Opaque
+stringData:
+  DATABASE_URL: "postgres://leaderboard:CHANGE_ME@leaderboard-postgres:5432/leaderboard"

@@ -1,0 +1,56 @@
+# Single Redis for the read model (RFC-001 §6 settings). For production use a
+# managed Redis or an operator with replicas; a failover to a lagging replica is
+# detected by the watermark and repaired by a rebuild.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: leaderboard-redis
+spec:
+  serviceName: leaderboard-redis
+  replicas: 1
+  selector:
+    matchLabels: { app: leaderboard-redis }
+  template:
+    metadata:
+      labels: { app: leaderboard-redis }
+    spec:
+      # SIGTERM triggers an AOF fsync; a SIGKILL after a short grace period would lose the tail.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          args:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - everysec
+            - --maxmemory
+            - 3gb
+            - --maxmemory-policy
+            - noeviction
+            - --save
+            - ""
+          ports:
+            - { containerPort: 6379, name: redis }
+          resources:
+            requests: { cpu: "1", memory: "4Gi" }
+            limits: { memory: "4Gi" }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests: { storage: 10Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: leaderboard-redis
+spec:
+  clusterIP: None
+  selector: { app: leaderboard-redis }
+  ports:
+    - { port: 6379, targetPort: redis }

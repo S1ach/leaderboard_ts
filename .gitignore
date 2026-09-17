@@ -2,3 +2,11 @@ node_modules/
 dist/
 .env
 *.log
+
+.cursor/
+.cursorrules
+.cursorignore
+.windsurfrules
+.aider*
+.github/copilot-instructions.md
+plan.md

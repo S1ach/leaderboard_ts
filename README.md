@@ -67,7 +67,8 @@ curl -s localhost:9100/metrics          # backlog и лаг outbox
 | `POST /score` `{"player_id","score_delta"}` | `200 {"player_id","season_id","score"}` — новый абсолютный счёт из PostgreSQL. `400` валидация (пустой id, `score_delta = 0`, не целое), `422` счёт вне диапазона, `503` нет активного сезона или PG недоступен. |
 | `GET /leaderboard/top?limit=100` | `{"season_id","entries":[{"rank","player_id","score"}]}`. `limit` 1..1000. |
 | `GET /leaderboard/rank/{player_id}?n=5` | `{"season_id","player":{…},"above":[…],"below":[…]}`. `n` 0..50. `404`, если игрока нет в рейтинге. |
-| `GET /health` | `200` / `503` с состоянием PG и Redis. |
+| `GET /health` | liveness: `200 {"status":"ok"}`, хранилища не проверяет — падение PG или Redis не должно перезапускать API. |
+| `GET /ready` | readiness: `200` / `503` с состоянием PG и Redis. |
 
 Сортировка: по убыванию очков, при равенстве выше тот, кто раньше получил этот счёт. Позиции с 1, без дублей.
 
@@ -101,15 +102,15 @@ curl -s localhost:9100/metrics          # backlog и лаг outbox
 
 ## Тесты
 
-`npm test` — 39 тестов, vitest, против реальных PostgreSQL и Redis:
+`npm test` — 40 тестов, vitest, против реальных PostgreSQL и Redis:
 
 - конкурентное накопление, валидация, `422` при переполнении, `503` без сезона;
 - tie-break: раньше набравший выше; изменивший счёт опускается среди равных;
 - Lua apply: идемпотентность, старое не перезаписывает новое, отрицательные счета, бутстрап нового сезона, `STALE`/`NOMETA`;
 - воркер: доставка и водяной знак, недоступный Redis (события остаются в outbox), падение между apply и commit;
 - rebuild: тот же порядок, что у штатной доставки; пропуск при целом водяном знаке; восстановление после `STALE` и `NOMETA`; seed в обход outbox; блокировка воркера на время rebuild;
-- API: top, rank с соседями и обрезкой у краёв, `404`, лаг между POST и чтением;
-- недоступный PostgreSQL (TCP-прокси обрывает соединения): `/top` и `/rank` отвечают из Redis, `POST /score` — `503` и снова `200` после восстановления без рестарта процесса; без кешированного сезона — `503`, не `500`.
+- API: top, rank с соседями и обрезкой у краёв, `404`, лаг между POST и чтением; `/health` не зависит от хранилищ, `/ready` — зависит;
+- недоступный PostgreSQL (TCP-прокси обрывает соединения): `/top` и `/rank` отвечают из Redis, `POST /score` — `503` и снова `200` после восстановления без рестарта процесса; `/health` — `200`, `/ready` — `503`; без кешированного сезона — `503`, не `500`.
 
 ## Проверка перезапусков (ручная процедура)
 
@@ -123,7 +124,7 @@ curl -s -X POST localhost:13000/score -H 'content-type: application/json' -d '{"
 # ... остальные аналогично
 # снимок: дождаться outbox_backlog 0 на :19100/metrics, затем
 curl -s 'localhost:13000/leaderboard/top?limit=10'; curl -s 'localhost:13000/leaderboard/rank/bob?n=2'
-# по очереди: restart → дождаться /health 200 → backlog 0 → снимок → сравнить с исходным
+# по очереди: restart → дождаться /ready 200 → backlog 0 → снимок → сравнить с исходным
 docker compose -p lb-clean restart redis
 # во время рестарта postgres — фоновый цикл curl по /top и /rank каждые 100 мс,
 # после — POST /score с повтором до 200; RestartCount снимается сразу после

@@ -116,19 +116,33 @@ paths:
         '503': { $ref: '#/components/responses/Unavailable' }
   /health:
     get:
-      summary: Health of the API and its storages (liveness and readiness probe)
+      summary: Liveness probe
+      description: >-
+        The process is up and serves HTTP. Does not check PostgreSQL or Redis, so a
+        storage outage does not make the orchestrator restart the API.
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Liveness' }
+              example: { status: ok }
+  /ready:
+    get:
+      summary: Readiness probe
+      description: Checks PostgreSQL and Redis; the pod should receive traffic only on 200.
       responses:
         '200':
           description: PostgreSQL and Redis both answered
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Health' }
+              schema: { $ref: '#/components/schemas/Readiness' }
               example: { status: ok, postgres: true, redis: true }
         '503':
           description: At least one storage did not answer
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Health' }
+              schema: { $ref: '#/components/schemas/Readiness' }
               example: { status: degraded, postgres: true, redis: false }
 components:
   schemas:
@@ -144,7 +158,12 @@ components:
         rank: { type: integer, minimum: 1, example: 1 }
         player_id: { $ref: '#/components/schemas/PlayerId' }
         score: { type: integer, example: 1500 }
-    Health:
+    Liveness:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+    Readiness:
       type: object
       required: [status, postgres, redis]
       properties:
@@ -178,10 +197,13 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ValidationError' }
     Unavailable:
-      description: No active season, or Redis is unavailable
+      description: >-
+        No active season; Redis is unavailable; or PostgreSQL is unavailable and the
+        active season has never been loaded (otherwise the last known season is used)
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
           examples:
             no_active_season: { value: { error: no_active_season } }
+            storage_unavailable: { value: { error: storage_unavailable } }
             leaderboard_unavailable: { value: { error: leaderboard_unavailable } }

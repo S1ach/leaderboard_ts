@@ -26,9 +26,11 @@ spec:
           resources:
             requests: { cpu: "500m", memory: "256Mi" }
             limits: { cpu: "1", memory: "512Mi" }
+          # Readiness checks PostgreSQL and Redis: a pod leaves the Service while they are down.
           readinessProbe:
-            httpGet: { path: /health, port: http }
+            httpGet: { path: /ready, port: http }
             periodSeconds: 5
+          # Liveness does not touch the storages: a storage outage must not restart every API pod.
           livenessProbe:
             httpGet: { path: /health, port: http }
             initialDelaySeconds: 10

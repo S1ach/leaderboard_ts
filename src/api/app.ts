@@ -47,7 +47,13 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     }
   }
 
-  app.get('/health', async (_req, reply) => {
+  // Liveness: the process is up and serving HTTP. It deliberately does not touch the
+  // storages, otherwise an outage of PostgreSQL or Redis would make Kubernetes restart
+  // every API pod, which cannot fix the storage and drops reads that still work.
+  app.get('/health', async () => ({ status: 'ok' }));
+
+  // Readiness: send traffic here only when both storages answer.
+  app.get('/ready', async (_req, reply) => {
     const [pgOk, redisOk] = await Promise.all([
       pg.query('SELECT 1').then(() => true, () => false),
       redis.ping().then(() => true, () => false),

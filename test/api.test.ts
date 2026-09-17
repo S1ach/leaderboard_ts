@@ -76,9 +76,15 @@ describe('GET /leaderboard/rank/:player_id', () => {
   });
 });
 
-describe('GET /health', () => {
-  it('is ok when both stores answer', async () => {
+describe('probes', () => {
+  it('GET /health is a liveness probe and does not report storages', async () => {
     const r = await env.app.inject({ url: '/health' });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ status: 'ok' });
+  });
+
+  it('GET /ready is ok when both stores answer', async () => {
+    const r = await env.app.inject({ url: '/ready' });
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({ status: 'ok', postgres: true, redis: true });
   });

@@ -133,9 +133,11 @@ redis_score = score * 2^32 + (2^32 - 1 - tie_local)
 - **Воркер** отдаёт `GET /metrics` на отдельном порту (`WORKER_METRICS_PORT`, по умолчанию 9100) в текстовом формате Prometheus. Формат собирается вручную, без `prom-client`: зависимостей у сервиса и так немного, а метрик меньше десятка.
   - `outbox_backlog` и `outbox_lag_seconds` — размер очереди и возраст самого старого события, главная метрика здоровья доставки;
   - `worker_is_leader`, `worker_batches_total`, `worker_events_total`, `worker_applied_total`, `worker_errors_total`, `worker_rebuilds_total`.
-- **API** отдаёт `GET /health`: `200`, если PG и Redis отвечают, иначе `503`; в теле — состояние каждого хранилища. В Kubernetes она используется и как liveness-, и как readiness-проба (`k8s/api.yaml`).
+- **API** отдаёт две пробы (`k8s/api.yaml`):
+  - `GET /health` — **liveness**: всегда `200 {"status":"ok"}`, если процесс обслуживает HTTP. Хранилища не проверяет намеренно: иначе падение PG или Redis заставило бы Kubernetes перезапускать все поды API, что хранилище не починит, а чтения из Redis при упавшем PG (3.3) оборвёт.
+  - `GET /ready` — **readiness**: `200`, если PG и Redis отвечают, иначе `503`; в теле — состояние каждого хранилища. Под без готовых хранилищ выводится из Service, но не перезапускается.
 
-Не реализовано, описано как production-решение (приложение): отдельная readiness-проба `GET /ready`, метрики самого API через `prom-client` (RPS, ошибки и latency p50/p95/p99 по каждой ручке, размер пула соединений PG), `postgres_exporter` и `redis_exporter` (CPU, память, соединения, репликация, autovacuum), дашборды Grafana и алерты на backlog outbox, память Redis и долю ошибок 5xx.
+Не реализовано, описано как production-решение (приложение): метрики самого API через `prom-client` (RPS, ошибки и latency p50/p95/p99 по каждой ручке, размер пула соединений PG), `postgres_exporter` и `redis_exporter` (CPU, память, соединения, репликация, autovacuum), дашборды Grafana и алерты на backlog outbox, память Redis и долю ошибок 5xx.
 
 ### 3.5. Логи
 
@@ -394,7 +396,8 @@ return applied
 | POST | `/score` | `200 {player_id, season_id, score}`, `400` невалидное тело, `422` счёт вне пределов, `503` нет сезона или PG недоступен |
 | GET | `/leaderboard/top?limit=100` | `200 {season_id, entries: [{rank, player_id, score}]}`, `400`, `503`; `limit` 1…1000 |
 | GET | `/leaderboard/rank/{player_id}?n=5` | `200 {season_id, player: {...}, above: [...], below: [...]}`, `404`, `503`; `n` 0…50 |
-| GET | `/health` | `200`/`503` с состоянием PG и Redis — единственная служебная ручка API |
+| GET | `/health` | liveness: `200 {status: ok}`, хранилища не проверяет |
+| GET | `/ready` | readiness: `200`/`503` с состоянием PG и Redis |
 
 Метрики отдаёт не API, а воркер, на своём порту (раздел 3.4).
 
@@ -477,6 +480,6 @@ return applied
 - **Автоматическая смена сезона** и ретеншен партиций через pg_partman.
 - **CDC** вместо outbox-таблицы при росте нагрузки.
 - **Шардирование** рейтинга и PG при росте на порядок: воркер, последовательность и водяной знак на шард.
-- **Полная наблюдаемость API:** отдельная ручка `GET /ready`, метрики через `prom-client` (RPS, ошибки, latency p50/p95/p99 по каждой ручке, размер пула соединений PG), `postgres_exporter` и `redis_exporter`, дашборды Grafana и алерты. Сейчас реализован минимум: `GET /health` у API и метрики воркера на отдельном порту (раздел 3.4).
+- **Полная наблюдаемость API:** метрики через `prom-client` (RPS, ошибки, latency p50/p95/p99 по каждой ручке, размер пула соединений PG), `postgres_exporter` и `redis_exporter`, дашборды Grafana и алерты. Сейчас реализован минимум: пробы `GET /health` и `GET /ready` у API и метрики воркера на отдельном порту (раздел 3.4).
 
 Водяной знак в этом списке больше нет: он реализован и описан в разделах 3.3 и 4.4.

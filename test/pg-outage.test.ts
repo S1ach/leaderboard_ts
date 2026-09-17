@@ -83,6 +83,11 @@ describe('PostgreSQL outage', () => {
       expect(rankRes.statusCode).toBe(200);
       expect(rankRes.json().player.rank).toBe(2);
 
+      expect((await app.inject({ url: '/health' })).statusCode).toBe(200); // liveness: do not restart
+      const ready = await app.inject({ url: '/ready' });
+      expect(ready.statusCode).toBe(503); // readiness: take out of rotation
+      expect(ready.json()).toEqual({ status: 'degraded', postgres: false, redis: true });
+
       const failed = await write('d');
       expect(failed.statusCode).toBe(503);
       expect(failed.json().error).toBe('storage_unavailable');
@@ -91,6 +96,7 @@ describe('PostgreSQL outage', () => {
       const recovered = await write('d');
       expect(recovered.statusCode).toBe(200);
       expect(recovered.json().score).toBe(1);
+      expect((await app.inject({ url: '/ready' })).statusCode).toBe(200);
     } finally {
       await app.close();
       await pool.end();

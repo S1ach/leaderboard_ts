@@ -1,0 +1,150 @@
+openapi: 3.0.3
+info:
+  title: Leaderboard Service
+  version: 1.0.0
+  description: Seasonal game leaderboard. See docs/rfc-001-leaderboard.md.
+paths:
+  /score:
+    post:
+      summary: Add points to a player in the active season
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [player_id, score_delta]
+              additionalProperties: false
+              properties:
+                player_id: { $ref: '#/components/schemas/PlayerId' }
+                score_delta:
+                  type: integer
+                  not: { enum: [0] }
+                  example: 100
+      responses:
+        '200':
+          description: New accumulated score (source of truth)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [player_id, season_id, score]
+                properties:
+                  player_id: { $ref: '#/components/schemas/PlayerId' }
+                  season_id: { type: integer, example: 202609 }
+                  score: { type: integer, example: 1500 }
+        '400': { $ref: '#/components/responses/Error' }
+        '422':
+          description: Resulting score is out of the supported range
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /leaderboard/top:
+    get:
+      summary: Top-N players of the active season
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+      responses:
+        '200':
+          description: Top players, ordered by rank
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [season_id, entries]
+                properties:
+                  season_id: { type: integer }
+                  entries:
+                    type: array
+                    items: { $ref: '#/components/schemas/Entry' }
+        '400': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /leaderboard/rank/{player_id}:
+    get:
+      summary: Player position and neighbours
+      parameters:
+        - name: player_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/PlayerId' }
+        - name: n
+          in: query
+          description: Number of neighbours above and below
+          schema: { type: integer, minimum: 0, maximum: 50, default: 5 }
+      responses:
+        '200':
+          description: Player and neighbours
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [season_id, player, above, below]
+                properties:
+                  season_id: { type: integer }
+                  player: { $ref: '#/components/schemas/Entry' }
+                  above:
+                    type: array
+                    description: Higher-ranked neighbours, best first
+                    items: { $ref: '#/components/schemas/Entry' }
+                  below:
+                    type: array
+                    items: { $ref: '#/components/schemas/Entry' }
+        '404':
+          description: Player is not in the leaderboard of the active season
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /health:
+    get:
+      summary: Liveness probe
+      responses:
+        '200': { description: Process is alive }
+  /ready:
+    get:
+      summary: Readiness probe (PostgreSQL and Redis reachable)
+      responses:
+        '200': { description: Ready }
+        '503': { description: Not ready }
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: Metrics in Prometheus text format
+          content:
+            text/plain: {}
+components:
+  schemas:
+    PlayerId:
+      type: string
+      minLength: 1
+      maxLength: 64
+      example: player-42
+    Entry:
+      type: object
+      required: [rank, player_id, score]
+      properties:
+        rank: { type: integer, minimum: 1, example: 1 }
+        player_id: { $ref: '#/components/schemas/PlayerId' }
+        score: { type: integer, example: 1500 }
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string, example: VALIDATION_ERROR }
+        message: { type: string }
+  responses:
+    Error:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unavailable:
+      description: No active season or a storage is unavailable
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

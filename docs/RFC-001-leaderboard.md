@@ -91,10 +91,11 @@ redis_score = score * 2^32 + (2^32 - 1 - tie_local)
 |---|---|---|
 | API | Node.js, TypeScript, Fastify | да |
 | Outbox worker | тот же образ, другая команда запуска | да |
-| Реляционное хранилище | PostgreSQL 16 | да |
+| Реляционное хранилище | PostgreSQL 17 | да |
 | Read model | Redis 7 (или Valkey) | да |
 | Миграции | SQL-файлы, отдельный one-shot сервис | да |
-| Метрики и дашборды | Prometheus + Grafana | описание (опционально в compose) |
+| Метрики | текстовый `/metrics` воркера (раздел 3.4) | да, порт 9100 |
+| Дашборды и алерты | Prometheus + Grafana | описание, не реализовано |
 | Логи | stdout → Loki или ELK | описание |
 
 **Reverse proxy не нужен.** В compose API слушает порт напрямую, в Kubernetes балансировку делает Service/Ingress.
@@ -127,16 +128,14 @@ redis_score = score * 2^32 + (2^32 - 1 - tie_local)
 
 ### 3.4. Мониторинг
 
-Сервис отдаёт `GET /metrics` в формате Prometheus (`prom-client`):
+Реализовано:
 
-- RPS, ошибки и latency (p50/p95/p99) по каждой ручке;
-- backlog outbox и возраст самого старого события (главная метрика здоровья доставки);
-- событий обработано в секунду, ошибки Redis, число пересборок;
-- размер пула соединений PG.
+- **Воркер** отдаёт `GET /metrics` на отдельном порту (`WORKER_METRICS_PORT`, по умолчанию 9100) в текстовом формате Prometheus. Формат собирается вручную, без `prom-client`: зависимостей у сервиса и так немного, а метрик меньше десятка.
+  - `outbox_backlog` и `outbox_lag_seconds` — размер очереди и возраст самого старого события, главная метрика здоровья доставки;
+  - `worker_is_leader`, `worker_batches_total`, `worker_events_total`, `worker_applied_total`, `worker_errors_total`, `worker_rebuilds_total`.
+- **API** отдаёт `GET /health`: `200`, если PG и Redis отвечают, иначе `503`; в теле — состояние каждого хранилища. В Kubernetes она используется и как liveness-, и как readiness-проба (`k8s/api.yaml`).
 
-Хранилища — через `postgres_exporter` и `redis_exporter`: CPU, память (для Redis критична), соединения, репликация, autovacuum. Отображение — дашборды Grafana, алерты на backlog outbox, память Redis и долю ошибок 5xx.
-
-Health-ручки: `GET /health` (liveness — процесс жив) и `GET /ready` (readiness — PG и Redis доступны).
+Не реализовано, описано как production-решение (приложение): отдельная readiness-проба `GET /ready`, метрики самого API через `prom-client` (RPS, ошибки и latency p50/p95/p99 по каждой ручке, размер пула соединений PG), `postgres_exporter` и `redis_exporter` (CPU, память, соединения, репликация, autovacuum), дашборды Grafana и алерты на backlog outbox, память Redis и долю ошибок 5xx.
 
 ### 3.5. Логи
 
@@ -388,14 +387,18 @@ return applied
 
 ## 5. API
 
-Полная схема — `docs/openapi.yaml` (в коде генерируется из схем Fastify через `@fastify/swagger`).
+Полная схема — `docs/openapi.yaml`; файл ведётся вручную и сверяется с кодом при изменении ручек.
 
 | Метод | Путь | Ответы |
 |---|---|---|
 | POST | `/score` | `200 {player_id, season_id, score}`, `400` невалидное тело, `422` счёт вне пределов, `503` нет сезона или PG недоступен |
 | GET | `/leaderboard/top?limit=100` | `200 {season_id, entries: [{rank, player_id, score}]}`, `400`, `503`; `limit` 1…1000 |
 | GET | `/leaderboard/rank/{player_id}?n=5` | `200 {season_id, player: {...}, above: [...], below: [...]}`, `404`, `503`; `n` 0…50 |
-| GET | `/health`, `/ready`, `/metrics` | служебные |
+| GET | `/health` | `200`/`503` с состоянием PG и Redis — единственная служебная ручка API |
+
+Метрики отдаёт не API, а воркер, на своём порту (раздел 3.4).
+
+Ошибки приложения — тело `{"error": "<код>"}`: `no_active_season`, `score_out_of_range`, `storage_unavailable`, `leaderboard_unavailable`, `player_not_ranked`. Ошибки валидации (`400`) формирует Fastify по JSON-схеме ручки, их тело — стандартное `{statusCode, error, message}`.
 
 `score_delta` — целое, не равное нулю. Позиция считается с 1.
 
@@ -474,5 +477,6 @@ return applied
 - **Автоматическая смена сезона** и ретеншен партиций через pg_partman.
 - **CDC** вместо outbox-таблицы при росте нагрузки.
 - **Шардирование** рейтинга и PG при росте на порядок: воркер, последовательность и водяной знак на шард.
+- **Полная наблюдаемость API:** отдельная ручка `GET /ready`, метрики через `prom-client` (RPS, ошибки, latency p50/p95/p99 по каждой ручке, размер пула соединений PG), `postgres_exporter` и `redis_exporter`, дашборды Grafana и алерты. Сейчас реализован минимум: `GET /health` у API и метрики воркера на отдельном порту (раздел 3.4).
 
 Водяной знак в этом списке больше нет: он реализован и описан в разделах 3.3 и 4.4.

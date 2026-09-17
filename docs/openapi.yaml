@@ -2,7 +2,11 @@ openapi: 3.0.3
 info:
   title: Leaderboard Service
   version: 1.0.0
-  description: Seasonal game leaderboard. See docs/rfc-001-leaderboard.md.
+  description: >-
+    Seasonal game leaderboard. Design and rationale: docs/RFC-001-leaderboard.md.
+    This file is maintained by hand and kept in sync with src/api/app.ts.
+    Worker metrics are not part of this API: the outbox worker exposes
+    GET /metrics on its own port (9100 by default), see RFC section 3.4.
 paths:
   /score:
     post:
@@ -14,12 +18,14 @@ paths:
             schema:
               type: object
               required: [player_id, score_delta]
-              additionalProperties: false
               properties:
                 player_id: { $ref: '#/components/schemas/PlayerId' }
                 score_delta:
                   type: integer
-                  not: { enum: [0] }
+                  description: Non-zero. A zero delta would still move the player among equals.
+                  minimum: -2097151
+                  maximum: 2097151
+                  not: { const: 0 }
                   example: 100
       responses:
         '200':
@@ -33,13 +39,21 @@ paths:
                   player_id: { $ref: '#/components/schemas/PlayerId' }
                   season_id: { type: integer, example: 202609 }
                   score: { type: integer, example: 1500 }
-        '400': { $ref: '#/components/responses/Error' }
+        '400': { $ref: '#/components/responses/ValidationError' }
         '422':
           description: Resulting score is out of the supported range
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '503': { $ref: '#/components/responses/Unavailable' }
+              example: { error: score_out_of_range }
+        '503':
+          description: No active season, or PostgreSQL is unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                no_active_season: { value: { error: no_active_season } }
+                storage_unavailable: { value: { error: storage_unavailable } }
   /leaderboard/top:
     get:
       summary: Top-N players of the active season
@@ -60,7 +74,7 @@ paths:
                   entries:
                     type: array
                     items: { $ref: '#/components/schemas/Entry' }
-        '400': { $ref: '#/components/responses/Error' }
+        '400': { $ref: '#/components/responses/ValidationError' }
         '503': { $ref: '#/components/responses/Unavailable' }
   /leaderboard/rank/{player_id}:
     get:
@@ -92,37 +106,36 @@ paths:
                   below:
                     type: array
                     items: { $ref: '#/components/schemas/Entry' }
+        '400': { $ref: '#/components/responses/ValidationError' }
         '404':
           description: Player is not in the leaderboard of the active season
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+              example: { error: player_not_ranked }
         '503': { $ref: '#/components/responses/Unavailable' }
   /health:
     get:
-      summary: Liveness probe
-      responses:
-        '200': { description: Process is alive }
-  /ready:
-    get:
-      summary: Readiness probe (PostgreSQL and Redis reachable)
-      responses:
-        '200': { description: Ready }
-        '503': { description: Not ready }
-  /metrics:
-    get:
-      summary: Prometheus metrics
+      summary: Health of the API and its storages (liveness and readiness probe)
       responses:
         '200':
-          description: Metrics in Prometheus text format
+          description: PostgreSQL and Redis both answered
           content:
-            text/plain: {}
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+              example: { status: ok, postgres: true, redis: true }
+        '503':
+          description: At least one storage did not answer
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+              example: { status: degraded, postgres: true, redis: false }
 components:
   schemas:
     PlayerId:
       type: string
       minLength: 1
-      maxLength: 64
+      maxLength: 128
       example: player-42
     Entry:
       type: object
@@ -131,20 +144,44 @@ components:
         rank: { type: integer, minimum: 1, example: 1 }
         player_id: { $ref: '#/components/schemas/PlayerId' }
         score: { type: integer, example: 1500 }
+    Health:
+      type: object
+      required: [status, postgres, redis]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        postgres: { type: boolean }
+        redis: { type: boolean }
     Error:
       type: object
-      required: [error, message]
+      required: [error]
       properties:
-        error: { type: string, example: VALIDATION_ERROR }
-        message: { type: string }
+        error:
+          type: string
+          enum:
+            - no_active_season
+            - score_out_of_range
+            - storage_unavailable
+            - leaderboard_unavailable
+            - player_not_ranked
+    ValidationError:
+      description: Produced by the Fastify JSON schema validator, not by the handlers.
+      type: object
+      required: [statusCode, error, message]
+      properties:
+        statusCode: { type: integer, example: 400 }
+        error: { type: string, example: Bad Request }
+        message: { type: string, example: body/score_delta must be integer }
   responses:
-    Error:
-      description: Invalid request
+    ValidationError:
+      description: Request body, query or path parameter failed validation
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+          schema: { $ref: '#/components/schemas/ValidationError' }
     Unavailable:
-      description: No active season or a storage is unavailable
+      description: No active season, or Redis is unavailable
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            no_active_season: { value: { error: no_active_season } }
+            leaderboard_unavailable: { value: { error: leaderboard_unavailable } }

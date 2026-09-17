@@ -59,10 +59,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    profiles: ["app"]
 
   api:
     build: .
+    # The process exits when it loses PostgreSQL (RFC §4.4); like k8s, compose restarts it.
+    restart: unless-stopped
     command: ["node", "dist/api.js"]
     environment:
       DATABASE_URL: postgres://leaderboard:leaderboard@postgres:5432/leaderboard
@@ -75,10 +76,11 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    profiles: ["app"]
 
   worker:
     build: .
+    # The process exits when it loses PostgreSQL (RFC §4.4); like k8s, compose restarts it.
+    restart: unless-stopped
     command: ["node", "dist/worker.js"]
     environment:
       DATABASE_URL: postgres://leaderboard:leaderboard@postgres:5432/leaderboard
@@ -91,7 +93,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    profiles: ["app"]
 
 volumes:
   pgdata:

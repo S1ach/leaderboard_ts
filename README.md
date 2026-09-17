@@ -11,29 +11,29 @@ POST /score ──▶ PostgreSQL ──▶ outbox worker ──▶ Redis ZSET �
 
 ## Запуск
 
-Нужны Node 22 и Docker. Порты по умолчанию: PostgreSQL `5433`, Redis `6380`, API `3000`, метрики воркера `9100`.
+Нужен Docker. Одна команда поднимает всё: PostgreSQL 17, Redis 7 (AOF everysec, noeviction), миграции (one-shot `migrate`), API и outbox worker.
 
 ```bash
-npm install
-docker compose up -d postgres redis   # PG 17 + Redis 7 (AOF everysec, noeviction)
-npm run migrate                       # схема + сезон текущего месяца
-npm run dev:api                       # API на :3000
-npm run dev:worker                    # outbox worker (в другом терминале)
+docker compose up --build
 ```
 
-Если порт занят (например, на `5433` уже слушает локальный PostgreSQL), переопредели переменную — её читают и compose, и приложение, и тесты:
+Порты на хосте по умолчанию: API `3000`, метрики воркера `9100`, PostgreSQL `5433`, Redis `6380`. Если порт занят (например, на `5433` уже слушает локальный PostgreSQL), переопредели переменную — её читают и compose, и приложение, и тесты:
 
 ```bash
-POSTGRES_PORT=15433 docker compose up -d postgres redis
-POSTGRES_PORT=15433 npm run migrate && POSTGRES_PORT=15433 npm test
+POSTGRES_PORT=15433 docker compose up --build
 ```
 
 Переменные: `POSTGRES_PORT`, `REDIS_PORT`, `API_PORT`, `METRICS_PORT` — см. [.env.example](.env.example). Значения можно положить в `.env`: compose читает его сам. Если задан `DATABASE_URL` или `REDIS_URL`, они важнее.
 
-Всё в контейнерах (API, воркер, миграции):
+Локальная разработка (нужен Node 22): хранилища в Docker, API и воркер нативно.
 
 ```bash
-docker compose --profile app up --build
+npm install
+docker compose up -d postgres redis
+npm run migrate                       # схема + сезон текущего месяца
+npm run dev:api                       # API на :3000
+npm run dev:worker                    # outbox worker (в другом терминале)
+POSTGRES_PORT=15433 npm test          # тесты; порт — тот же, что у compose
 ```
 
 Проверка:
@@ -109,6 +109,39 @@ curl -s localhost:9100/metrics          # backlog и лаг outbox
 - воркер: доставка и водяной знак, недоступный Redis (события остаются в outbox), падение между apply и commit;
 - rebuild: тот же порядок, что у штатной доставки; пропуск при целом водяном знаке; восстановление после `STALE` и `NOMETA`; seed в обход outbox; блокировка воркера на время rebuild;
 - API: top, rank с соседями и обрезкой у краёв, `404`, лаг между POST и чтением.
+
+## Проверка перезапусков (ручная процедура)
+
+Цель: убедиться, что данные и порядок рейтинга переживают перезапуск каждого компонента. Проверка выполнена 2026-09-17 на Mac (Apple M2 Pro), Docker 27.4.0, Compose 2.31.0, на чистом стеке под отдельным именем проекта, чтобы не задеть рабочие volumes:
+
+```bash
+export POSTGRES_PORT=15434 REDIS_PORT=16380 API_PORT=13000 METRICS_PORT=19100
+docker compose -p lb-clean up -d --build --wait     # чистые volumes lb-clean_*
+# 6 начислений: alice 100, bob 100, carol 50, dave 70, alice +20, carol +50
+curl -s -X POST localhost:13000/score -H 'content-type: application/json' -d '{"player_id":"alice","score_delta":100}'
+# ... остальные аналогично
+# снимок: дождаться outbox_backlog 0 на :19100/metrics, затем
+curl -s 'localhost:13000/leaderboard/top?limit=10'; curl -s 'localhost:13000/leaderboard/rank/bob?n=2'
+# по очереди: restart → дождаться /health 200 → backlog 0 → снимок → сравнить с исходным
+docker compose -p lb-clean restart redis
+docker compose -p lb-clean restart postgres
+docker compose -p lb-clean restart api
+docker compose -p lb-clean restart worker
+docker compose -p lb-clean down -v
+```
+
+Результат:
+
+| Перезапуск | top и rank после | Что происходило |
+|---|---|---|
+| исходно | `alice 120, bob 100, carol 100, dave 70` | bob и carol по 100: bob выше, он получил 100 раньше |
+| `redis` | совпадают с исходными | AOF цел, водяной знак сошёлся, `worker_rebuilds_total 0` |
+| `postgres` | совпадают с исходными | API и воркер **завершились** (обрыв соединений PG) и были подняты политикой `restart: unless-stopped`, `RestartCount=1` у обоих |
+| `api` | совпадают с исходными | stateless |
+| `worker` | совпадают с исходными | leader lock взят заново, backlog 0 |
+| новая запись после всех рестартов | `dave 100` встал после carol | доставка работает, tie-break сохранён |
+
+Итог: потерь данных и изменений порядка нет. Замечание по `postgres`: процессы API и воркера при его рестарте падают и восстанавливаются только за счёт перезапуска контейнера (в Kubernetes — так же, рестартом пода).
 
 ## Масштабирование
 

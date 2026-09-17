@@ -101,14 +101,15 @@ curl -s localhost:9100/metrics          # backlog и лаг outbox
 
 ## Тесты
 
-`npm test` — 37 тестов, vitest, против реальных PostgreSQL и Redis:
+`npm test` — 39 тестов, vitest, против реальных PostgreSQL и Redis:
 
 - конкурентное накопление, валидация, `422` при переполнении, `503` без сезона;
 - tie-break: раньше набравший выше; изменивший счёт опускается среди равных;
 - Lua apply: идемпотентность, старое не перезаписывает новое, отрицательные счета, бутстрап нового сезона, `STALE`/`NOMETA`;
 - воркер: доставка и водяной знак, недоступный Redis (события остаются в outbox), падение между apply и commit;
 - rebuild: тот же порядок, что у штатной доставки; пропуск при целом водяном знаке; восстановление после `STALE` и `NOMETA`; seed в обход outbox; блокировка воркера на время rebuild;
-- API: top, rank с соседями и обрезкой у краёв, `404`, лаг между POST и чтением.
+- API: top, rank с соседями и обрезкой у краёв, `404`, лаг между POST и чтением;
+- недоступный PostgreSQL (TCP-прокси обрывает соединения): `/top` и `/rank` отвечают из Redis, `POST /score` — `503` и снова `200` после восстановления без рестарта процесса; без кешированного сезона — `503`, не `500`.
 
 ## Проверка перезапусков (ручная процедура)
 
@@ -124,6 +125,9 @@ curl -s -X POST localhost:13000/score -H 'content-type: application/json' -d '{"
 curl -s 'localhost:13000/leaderboard/top?limit=10'; curl -s 'localhost:13000/leaderboard/rank/bob?n=2'
 # по очереди: restart → дождаться /health 200 → backlog 0 → снимок → сравнить с исходным
 docker compose -p lb-clean restart redis
+# во время рестарта postgres — фоновый цикл curl по /top и /rank каждые 100 мс,
+# после — POST /score с повтором до 200; RestartCount снимается сразу после
+docker inspect lb-clean-api-1 lb-clean-worker-1 --format '{{.Name}} RestartCount={{.RestartCount}}'
 docker compose -p lb-clean restart postgres
 docker compose -p lb-clean restart api
 docker compose -p lb-clean restart worker
@@ -136,12 +140,14 @@ docker compose -p lb-clean down -v
 |---|---|---|
 | исходно | `alice 120, bob 100, carol 100, dave 70` | bob и carol по 100: bob выше, он получил 100 раньше |
 | `redis` | совпадают с исходными | AOF цел, водяной знак сошёлся, `worker_rebuilds_total 0` |
-| `postgres` | совпадают с исходными | API и воркер **завершились** (обрыв соединений PG) и были подняты политикой `restart: unless-stopped`, `RestartCount=1` у обоих |
+| `postgres` | совпадают с исходными | API и воркер **не падали** (`RestartCount=0`). Чтения во время рестарта: 356 запросов `/top` и `/rank` за 25 с окна, все `200`. Первая запись сразу после рестарта — `503` (`the database system is starting up`), повтор через 0.5 с — `200`. Воркер записал в лог `postgres connection lost`, переподключился и снова взял leader lock; новая запись дошла до `top` |
 | `api` | совпадают с исходными | stateless |
 | `worker` | совпадают с исходными | leader lock взят заново, backlog 0 |
 | новая запись после всех рестартов | `dave 100` встал после carol | доставка работает, tie-break сохранён |
 
-Итог: потерь данных и изменений порядка нет. Замечание по `postgres`: процессы API и воркера при его рестарте падают и восстанавливаются только за счёт перезапуска контейнера (в Kubernetes — так же, рестартом пода).
+Итог: потерь данных и изменений порядка нет, ни один процесс не перезапускался. `restart: unless-stopped` у API и воркера в compose оставлен как страховка от любых других падений процесса.
+
+История: первая такая проверка нашла дефект — при рестарте PostgreSQL пул `pg` получал ошибку на простаивающем соединении без обработчика, и Node завершал API и воркер; чтения после истечения кеша сезона отвечали `500`. Исправлено: обработчики ошибок соединений у `pg.Pool` и `ioredis`, кеш сезона отдаёт последнее известное значение, воркер переподключается сам. Регрессионный тест — `test/pg-outage.test.ts`.
 
 ## Масштабирование
 

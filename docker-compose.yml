@@ -62,7 +62,7 @@ services:
 
   api:
     build: .
-    # The process exits when it loses PostgreSQL (RFC §4.4); like k8s, compose restarts it.
+    # Safety net for any process crash; PG/Redis outages are handled in-process.
     restart: unless-stopped
     command: ["node", "dist/api.js"]
     environment:
@@ -79,7 +79,7 @@ services:
 
   worker:
     build: .
-    # The process exits when it loses PostgreSQL (RFC §4.4); like k8s, compose restarts it.
+    # Safety net for any process crash; PG/Redis outages are handled in-process.
     restart: unless-stopped
     command: ["node", "dist/worker.js"]
     environment:

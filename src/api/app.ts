@@ -52,7 +52,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           required: ['player_id', 'score_delta'],
           properties: {
             player_id: { type: 'string', minLength: 1, maxLength: config.playerIdMaxLen },
-            // Zero is rejected: a no-op update would still move the player among equals (§5.3).
+            // Zero is rejected: a no-op update would still move the player among equals (§4.4).
             score_delta: {
               type: 'integer',
               minimum: -(SCORE_ABS_LIMIT - 1),

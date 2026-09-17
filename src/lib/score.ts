@@ -1,7 +1,7 @@
 import type { PgClient, PgPool } from './db.js';
 
 /**
- * RFC-001 §5.3: one statement, one transaction, one round trip.
+ * RFC-001 §4.4: one statement, one transaction, one round trip.
  * The season is resolved by the database clock; the outbox row carries the
  * absolute state so re-applying it is safe.
  */

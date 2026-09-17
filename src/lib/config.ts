@@ -28,7 +28,7 @@ export const config = {
   rebuildZaddChunk: int('REBUILD_ZADD_CHUNK', 5000),
 };
 
-/** Advisory lock keys (RFC-001 §5.5, §6). */
+/** Advisory lock keys (RFC-001 §4.4). */
 export const LOCKS = {
   /** Exclusive: rebuild. Shared: every worker batch transaction. */
   REBUILD: 7_001_001,

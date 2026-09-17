@@ -1,4 +1,4 @@
--- RFC-001 §5.2: schema for the seasonal leaderboard.
+-- RFC-001 §4.2: schema for the seasonal leaderboard.
 
 CREATE TABLE seasons (
   id         integer PRIMARY KEY,          -- e.g. 202609
@@ -22,7 +22,7 @@ CREATE TABLE player_scores (
   tie_seq    bigint  NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (season_id, player_id),
-  -- Encoding limit (§5.4): score occupies the bits above 2^32 of a double.
+  -- Encoding limit (§2.2): score occupies the bits above 2^32 of a double.
   CHECK (abs(score) < 2097152)
 ) PARTITION BY LIST (season_id);
 
@@ -44,7 +44,7 @@ ALTER TABLE leaderboard_outbox SET (
   autovacuum_analyze_threshold = 50000
 );
 
--- Number of a batch-processing *attempt* (§5.5, watermark). Sequences never
+-- Number of a batch-processing *attempt* (§4.4, watermark). Sequences never
 -- roll back, so attempt numbers strictly increase.
 CREATE SEQUENCE outbox_batch_seq AS bigint;
 

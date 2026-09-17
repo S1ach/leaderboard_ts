@@ -1,5 +1,5 @@
 -- Development bootstrap: a season for the current calendar month (UTC).
--- In production seasons are created ahead of time by a scheduled job (§8).
+-- In production seasons are created ahead of time by a scheduled job (§2.2).
 DO $$
 DECLARE
   m timestamptz := date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC';

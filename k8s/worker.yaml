@@ -1,4 +1,4 @@
-# RFC-001 §5.5 / §7: exactly one active worker (leader lock in PostgreSQL); the
+# RFC-001 §4.4 / §3.2: exactly one active worker (leader lock in PostgreSQL); the
 # second replica is a warm standby. Not scaled by HPA: the watermark requires a
 # single sequential writer per season. To scale, shard by hash(player_id) with a
 # worker + watermark per shard.

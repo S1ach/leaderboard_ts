@@ -112,7 +112,7 @@ export class Worker {
   }
 }
 
-/** Prometheus-style text metrics (RFC-001 §5.5 "Метрики"). Uses its own tiny pool: the worker connection is busy. */
+/** Prometheus-style text metrics (RFC-001 §3.4). Uses its own tiny pool: the worker connection is busy. */
 export function startMetricsServer(worker: Worker, port: number): http.Server {
   const pool = createPool(config.databaseUrl, 1);
   const server = http.createServer(async (req, res) => {

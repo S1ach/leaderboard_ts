@@ -26,7 +26,7 @@ export async function querySeason(db: PgPool | PgClient, id: number): Promise<Se
 }
 
 /**
- * Active season for reads (RFC-001 §5.6): cached for a short TTL. At a season
+ * Active season for reads (RFC-001 §4.4 "Чтения"): cached for a short TTL. At a season
  * boundary reads may lag by up to the TTL. A negative result is cached too.
  */
 export class SeasonCache {

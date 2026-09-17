@@ -1,4 +1,4 @@
-// Scenario "read": top and rank, target ~10 000 RPS in total (RFC-001 §9).
+// Scenario "read": top and rank, target ~10 000 RPS in total (RFC-001 §6.1).
 import { getTop, getRank, thresholds, summaryTrendStats } from './common.js';
 
 const RATE = Number(__ENV.RATE || 10000);

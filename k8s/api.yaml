@@ -43,7 +43,7 @@ spec:
   ports:
     - { port: 80, targetPort: http }
 ---
-# RFC-001 §7: start with CPU; in production add RPS-per-pod / p95 latency via Prometheus Adapter.
+# RFC-001 §3.2: start with CPU; in production add RPS-per-pod / p95 latency via Prometheus Adapter.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

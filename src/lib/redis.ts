@@ -2,7 +2,7 @@ import { Redis } from 'ioredis';
 import { config } from './config.js';
 
 /**
- * Outbox apply (RFC-001 §5.5).
+ * Outbox apply (RFC-001 §4.4).
  * KEYS[1] = leaderboard:{S}, KEYS[2] = leaderboard:{S}:meta
  * ARGV[1] = expected (worker_state.last_batch), ARGV[2] = batch_id,
  * then triples: member, redis_score, tie_local.
@@ -38,7 +38,7 @@ return applied
 `;
 
 /**
- * Rebuild swap (RFC-001 §6, step 7). One script so RENAME and HSET are atomic
+ * Rebuild swap (RFC-001 §4.4, rebuild step 6). One script so RENAME and HSET are atomic
  * even under AOF truncation.
  * KEYS[1] = leaderboard, KEYS[2] = meta, KEYS[3] = rebuild; ARGV[1] = W
  */
@@ -53,7 +53,7 @@ return 1
 `;
 
 /**
- * Rank with neighbours from a single snapshot (RFC-001 §5.6).
+ * Rank with neighbours from a single snapshot (RFC-001 §2.2).
  * KEYS[1] = leaderboard; ARGV[1] = member, ARGV[2] = n
  */
 export const RANK_LUA = `

@@ -83,7 +83,7 @@ describe('rebuild', () => {
   });
 
   it('bypassing the outbox (seed) is covered after a forced rebuild, and seeded players keep updating', async () => {
-    // Seed 3 players directly, advancing tie_seq past the seeded values (RFC §5.5 "Записи в обход outbox").
+    // Seed 3 players directly, advancing tie_seq past the seeded values (RFC §4.4 "Записи в обход outbox").
     const base: number = (await env.pool.query(`SELECT nextval('tie_seq') AS v`)).rows[0].v;
     await env.pool.query(
       `INSERT INTO player_scores (season_id, player_id, score, tie_seq) VALUES

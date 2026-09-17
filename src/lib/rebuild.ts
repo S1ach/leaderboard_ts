@@ -20,7 +20,7 @@ export interface RebuildOptions {
 }
 
 /**
- * RFC-001 §6 "Rebuild". `client` must be a dedicated connection that is not
+ * RFC-001 §4.4 "Пересборка". `client` must be a dedicated connection that is not
  * inside a transaction: the exclusive advisory lock is session-level and the
  * final commit runs on the same session, so a dropped connection cannot leave
  * the worker running against a half-finished rebuild.

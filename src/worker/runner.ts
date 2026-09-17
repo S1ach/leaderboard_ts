@@ -20,28 +20,64 @@ export interface WorkerStats {
 
 export class Worker {
   private stopped = false;
-  private client!: pg.Client;
+  private client: pg.Client | null = null;
+  private connectionLost = false;
   private redis!: RedisClient;
   readonly stats: WorkerStats = { isLeader: 0, batches: 0, events: 0, applied: 0, redisErrors: 0, rebuilds: 0, lastBatchAt: 0 };
 
+  /**
+   * One PostgreSQL session at a time. If it breaks (e.g. a PostgreSQL restart), the
+   * server has already released the leader lock and rolled back the in-flight batch,
+   * so the session is thrown away, never reused: reconnect, compete for leadership
+   * again and re-check the watermark. Same effect as a process restart, without one.
+   */
   async run(): Promise<void> {
-    this.client = await connectClient();
     this.redis = createRedis();
-    // Connection loss = loss of the leader lock and any in-flight batch: exit and let the orchestrator restart us.
-    this.client.on('error', (err) => {
-      logger.fatal({ err }, 'postgres connection lost, exiting');
-      process.exit(2);
-    });
+    let backoff = 100;
+    while (!this.stopped) {
+      try {
+        await this.connect();
+        backoff = 100;
+        await this.processLoop();
+      } catch (err) {
+        this.stats.redisErrors++;
+        logger.error({ error: (err as Error).message, backoff }, 'worker session failed, reconnecting');
+        await sleep(backoff);
+        backoff = Math.min(backoff * 2, 5000);
+      } finally {
+        await this.disconnect();
+      }
+    }
+  }
 
+  private async connect(): Promise<void> {
+    this.connectionLost = false;
+    this.client = await connectClient();
+    const lost = (reason: string) => {
+      if (!this.connectionLost) logger.warn({ reason }, 'postgres connection lost');
+      this.connectionLost = true;
+    };
+    this.client.on('error', (err) => lost(err.message));
+    this.client.on('end', () => lost('connection closed'));
     await this.becomeLeader();
+    if (this.stopped) return; // stopped while standing by: not the leader, do nothing
     await this.checkInvariant();
+  }
 
+  private async disconnect(): Promise<void> {
+    this.stats.isLeader = 0;
+    this.connectionLost = true; // our own close must not be logged as a lost connection
+    await this.client?.end().catch(() => {});
+    this.client = null;
+  }
+
+  private async processLoop(): Promise<void> {
     let backoff = 100;
     let lastIdleCheck = Date.now();
     let waitingForRebuild = false;
     while (!this.stopped) {
       try {
-        const r = await processBatch(this.client, this.redis);
+        const r = await processBatch(this.db(), this.redis);
         backoff = 100;
         if (waitingForRebuild && r.kind !== 'locked') {
           waitingForRebuild = false;
@@ -74,6 +110,7 @@ export class Worker {
             break;
         }
       } catch (err) {
+        if (this.connectionLost) throw err; // the session is gone: let run() reconnect
         this.stats.redisErrors++;
         logger.error({ err, backoff }, 'batch failed, retrying');
         await sleep(backoff);
@@ -82,19 +119,27 @@ export class Worker {
     }
   }
 
+  /** The current session; fails fast once it is known to be broken. */
+  private db(): pg.Client {
+    if (!this.client || this.connectionLost) throw new Error('postgres connection lost');
+    return this.client;
+  }
+
   private async becomeLeader(): Promise<void> {
-    for (;;) {
-      const r = await this.client.query('SELECT pg_try_advisory_lock($1) AS ok', [LOCKS.WORKER_LEADER]);
-      if (r.rows[0]?.ok) break;
+    while (!this.stopped) {
+      const r = await this.db().query('SELECT pg_try_advisory_lock($1) AS ok', [LOCKS.WORKER_LEADER]);
+      if (r.rows[0]?.ok) {
+        this.stats.isLeader = 1;
+        logger.info('became leader');
+        return;
+      }
       logger.info('another worker is the leader, standing by');
       await sleep(1000);
     }
-    this.stats.isLeader = 1;
-    logger.info('became leader');
   }
 
   private async checkInvariant(): Promise<void> {
-    const stale = await findStaleSeasons(this.client, this.redis);
+    const stale = await findStaleSeasons(this.db(), this.redis);
     for (const seasonId of stale) {
       logger.warn({ season: seasonId }, 'watermark check failed, rebuilding');
       await this.rebuild(seasonId);
@@ -103,7 +148,7 @@ export class Worker {
 
   private async rebuild(seasonId: number): Promise<void> {
     this.stats.rebuilds++;
-    const res = await rebuildSeason(this.client, this.redis, seasonId, { log: (m) => logger.info(m) });
+    const res = await rebuildSeason(this.db(), this.redis, seasonId, { log: (m) => logger.info(m) });
     logger.info({ season: seasonId, ...res }, 'rebuild finished');
   }
 

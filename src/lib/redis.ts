@@ -1,5 +1,6 @@
 import { Redis } from 'ioredis';
 import { config } from './config.js';
+import { logger } from './logger.js';
 
 /**
  * Outbox apply (RFC-001 §4.4).
@@ -81,6 +82,9 @@ export function createRedis(url = config.redisUrl, opts: { lazyConnect?: boolean
     enableOfflineQueue: true,
     connectTimeout: 5000,
   });
+  // ioredis reconnects on its own (default retryStrategy); the listener only turns
+  // connection errors into log lines instead of "[ioredis] Unhandled error event".
+  redis.on('error', (err) => logger.warn({ error: err.message }, 'redis connection error'));
   redis.defineCommand('lbApply', { numberOfKeys: 2, lua: APPLY_LUA });
   redis.defineCommand('lbSwap', { numberOfKeys: 3, lua: SWAP_LUA });
   redis.defineCommand('lbRank', { numberOfKeys: 1, lua: RANK_LUA });

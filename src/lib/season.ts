@@ -28,9 +28,13 @@ export async function querySeason(db: PgPool | PgClient, id: number): Promise<Se
 /**
  * Active season for reads (RFC-001 §4.4 "Чтения"): cached for a short TTL. At a season
  * boundary reads may lag by up to the TTL. A negative result is cached too.
+ *
+ * If PostgreSQL is unavailable, the last known value is served so reads keep working
+ * from Redis (RFC-001 §3.3). Only when nothing was ever loaded does get() reject.
  */
 export class SeasonCache {
   private value: Season | null = null;
+  private loaded = false;
   private expiresAt = 0;
   private inflight: Promise<Season | null> | null = null;
 
@@ -41,12 +45,21 @@ export class SeasonCache {
     if (now < this.expiresAt) return Promise.resolve(this.value);
     if (this.inflight) return this.inflight;
     this.inflight = queryActiveSeason(this.db)
-      .then((s) => {
-        this.value = s;
-        this.expiresAt = Date.now() + this.ttlMs;
-        return s;
-      })
+      .then(
+        (s) => {
+          this.value = s;
+          this.loaded = true;
+          return s;
+        },
+        (err) => {
+          if (!this.loaded) throw err;
+          return this.value; // stale but usable: PostgreSQL is down, Redis may still answer
+        },
+      )
       .finally(() => {
+        // Also after a failure with a known value: retry PostgreSQL once per TTL, not on
+        // every request. With nothing loaded yet, every request retries (and gets 503).
+        if (this.loaded) this.expiresAt = Date.now() + this.ttlMs;
         this.inflight = null;
       });
     return this.inflight;

@@ -1,11 +1,11 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { PgPool } from '../lib/db.js';
 import { config } from '../lib/config.js';
 import { decodeScore, SCORE_ABS_LIMIT } from '../lib/encoding.js';
 import { keys } from '../lib/keys.js';
 import type { RedisClient } from '../lib/redis.js';
 import { addScore, NoActiveSeasonError, ScoreOutOfRangeError } from '../lib/score.js';
-import { SeasonCache } from '../lib/season.js';
+import { SeasonCache, type Season } from '../lib/season.js';
 
 export interface AppDeps {
   pg: PgPool;
@@ -33,6 +33,19 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   const { pg, redis } = deps;
   const seasons = deps.seasonCache ?? new SeasonCache(pg);
   const app = Fastify({ logger: deps.logger ?? false });
+
+  /** Active season for reads, or null after replying 503 (no season, or PostgreSQL down with an empty cache). */
+  async function activeSeason(req: FastifyRequest, reply: FastifyReply): Promise<Season | null> {
+    try {
+      const season = await seasons.get();
+      if (!season) reply.code(503).send({ error: 'no_active_season' });
+      return season;
+    } catch (e) {
+      req.log.error({ err: e }, 'active season lookup failed');
+      reply.code(503).send({ error: 'storage_unavailable' });
+      return null;
+    }
+  }
 
   app.get('/health', async (_req, reply) => {
     const [pgOk, redisOk] = await Promise.all([
@@ -87,8 +100,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       },
     },
     async (req, reply) => {
-      const season = await seasons.get();
-      if (!season) return reply.code(503).send({ error: 'no_active_season' });
+      const season = await activeSeason(req, reply);
+      if (!season) return reply;
       const limit = req.query.limit ?? 100;
       let flat: string[];
       try {
@@ -116,8 +129,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       },
     },
     async (req, reply) => {
-      const season = await seasons.get();
-      if (!season) return reply.code(503).send({ error: 'no_active_season' });
+      const season = await activeSeason(req, reply);
+      if (!season) return reply;
       const n = req.query.n ?? 5;
       let res: [number, number, string[]] | null;
       try {

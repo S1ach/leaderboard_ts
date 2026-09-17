@@ -6,10 +6,15 @@ function int(name: string, def: number): number {
   return n;
 }
 
+// Host ports the compose stack publishes; the same variables move the ports in
+// docker-compose.yml, so one override is enough when 5433 or 6380 is taken.
+const pgHostPort = int('POSTGRES_PORT', 5433);
+const redisHostPort = int('REDIS_PORT', 6380);
+
 export const config = {
-  databaseUrl: process.env.DATABASE_URL ?? 'postgres://leaderboard:leaderboard@localhost:5433/leaderboard',
+  databaseUrl: process.env.DATABASE_URL ?? `postgres://leaderboard:leaderboard@localhost:${pgHostPort}/leaderboard`,
   pgPoolSize: int('PG_POOL_SIZE', 10),
-  redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6380/0',
+  redisUrl: process.env.REDIS_URL ?? `redis://localhost:${redisHostPort}/0`,
   port: int('PORT', 3000),
   host: process.env.HOST ?? '0.0.0.0',
   logLevel: process.env.LOG_LEVEL ?? 'info',

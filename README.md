@@ -21,6 +21,15 @@ npm run dev:api                       # API на :3000
 npm run dev:worker                    # outbox worker (в другом терминале)
 ```
 
+Если порт занят (например, на `5433` уже слушает локальный PostgreSQL), переопредели переменную — её читают и compose, и приложение, и тесты:
+
+```bash
+POSTGRES_PORT=15433 docker compose up -d postgres redis
+POSTGRES_PORT=15433 npm run migrate && POSTGRES_PORT=15433 npm test
+```
+
+Переменные: `POSTGRES_PORT`, `REDIS_PORT`, `API_PORT`, `METRICS_PORT` — см. [.env.example](.env.example). Значения можно положить в `.env`: compose читает его сам. Если задан `DATABASE_URL` или `REDIS_URL`, они важнее.
+
 Всё в контейнерах (API, воркер, миграции):
 
 ```bash

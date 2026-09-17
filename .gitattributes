@@ -1,0 +1,15 @@
+# Everything that is executed or parsed inside a Linux container must be checked
+# out with LF, whatever core.autocrlf says on the developer machine. With
+# autocrlf=true a CRLF checkout of an init script makes the postgres entrypoint
+# fail with "/bin/sh^M: bad interpreter: No such file or directory", and the
+# container exits before creating the test database.
+*.sh            text eol=lf
+*.sql           text eol=lf
+*.lua           text eol=lf
+*.js            text eol=lf
+*.ts            text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+Dockerfile      text eol=lf
+.dockerignore   text eol=lf
+.env.example    text eol=lf

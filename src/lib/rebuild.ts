@@ -2,6 +2,7 @@ import type pg from 'pg';
 import { config, LOCKS } from './config.js';
 import { encodeScore, tieLocal } from './encoding.js';
 import { keys } from './keys.js';
+import type { ChainableCommander } from 'ioredis';
 import type { RedisClient } from './redis.js';
 import { querySeason } from './season.js';
 
@@ -17,6 +18,17 @@ export interface RebuildOptions {
   readBatch?: number;
   zaddChunk?: number;
   log?: (msg: string) => void;
+}
+
+/**
+ * ioredis resolves pipeline.exec() even when individual commands fail and puts the
+ * errors into the replies: check each one, otherwise a partial load would be swapped in.
+ */
+async function execPipeline(pipeline: ChainableCommander): Promise<void> {
+  const replies = await pipeline.exec();
+  if (!replies) throw new Error('rebuild pipeline was aborted');
+  const failed = replies.find(([err]) => err);
+  if (failed) throw new Error(`rebuild pipeline command failed: ${failed[0]!.message}`);
 }
 
 /**
@@ -60,38 +72,44 @@ export async function rebuildSeason(
     await client.query('INSERT INTO worker_state (season_id) VALUES ($1) ON CONFLICT DO NOTHING', [seasonId]);
     const w: number = (await client.query(`SELECT nextval('outbox_batch_seq') AS w`)).rows[0].w;
 
-    // 5–6. Stream the partition into the temporary key.
+    // 5–6. Stream the partition into the temporary key. On any failure drop the
+    // temporary key and stop before the swap: the working key and meta stay untouched.
     let rows = 0;
     let lastId = '';
     let pipeline = redis.pipeline();
     let inPipeline = 0;
-    for (;;) {
-      const page = await client.query<{ player_id: string; score: number; tie_seq: number }>(
-        `SELECT player_id, score, tie_seq FROM player_scores
-          WHERE season_id = $1 AND player_id > $2
-          ORDER BY player_id LIMIT $3`,
-        [seasonId, lastId, readBatch],
-      );
-      if (page.rows.length === 0) break;
-      for (let i = 0; i < page.rows.length; i += zaddChunk) {
-        const chunk = page.rows.slice(i, i + zaddChunk);
-        const args: (string | number)[] = [];
-        for (const r of chunk) {
-          args.push(encodeScore(r.score, tieLocal(r.tie_seq, season.tieBase)), r.player_id);
+    try {
+      for (;;) {
+        const page = await client.query<{ player_id: string; score: number; tie_seq: number }>(
+          `SELECT player_id, score, tie_seq FROM player_scores
+            WHERE season_id = $1 AND player_id > $2
+            ORDER BY player_id LIMIT $3`,
+          [seasonId, lastId, readBatch],
+        );
+        if (page.rows.length === 0) break;
+        for (let i = 0; i < page.rows.length; i += zaddChunk) {
+          const chunk = page.rows.slice(i, i + zaddChunk);
+          const args: (string | number)[] = [];
+          for (const r of chunk) {
+            args.push(encodeScore(r.score, tieLocal(r.tie_seq, season.tieBase)), r.player_id);
+          }
+          pipeline.zadd(keys.rebuild(seasonId), ...args);
+          inPipeline++;
         }
-        pipeline.zadd(keys.rebuild(seasonId), ...args);
-        inPipeline++;
+        rows += page.rows.length;
+        lastId = page.rows[page.rows.length - 1]!.player_id;
+        if (inPipeline >= 8) {
+          await execPipeline(pipeline);
+          pipeline = redis.pipeline();
+          inPipeline = 0;
+        }
+        if (rows % 500_000 < readBatch) log(`season ${seasonId}: ${rows} rows loaded`);
       }
-      rows += page.rows.length;
-      lastId = page.rows[page.rows.length - 1]!.player_id;
-      if (inPipeline >= 8) {
-        await pipeline.exec();
-        pipeline = redis.pipeline();
-        inPipeline = 0;
-      }
-      if (rows % 500_000 < readBatch) log(`season ${seasonId}: ${rows} rows loaded`);
+      if (inPipeline > 0) await execPipeline(pipeline);
+    } catch (e) {
+      await redis.del(keys.rebuild(seasonId)).catch(() => {});
+      throw e;
     }
-    if (inPipeline > 0) await pipeline.exec();
 
     // 7. Atomic swap + watermark.
     await redis.lbSwap(keys.leaderboard(seasonId), keys.meta(seasonId), keys.rebuild(seasonId), w);

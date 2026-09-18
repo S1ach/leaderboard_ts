@@ -105,6 +105,37 @@ describe('rebuild', () => {
     expect(await findStaleSeasons(env.pool, env.redis)).toEqual([TEST_SEASON]);
   });
 
+  it('a failed pipeline command aborts the rebuild before the swap', async () => {
+    await post(env, 'a', 1);
+    await post(env, 'b', 2);
+    await drain(env);
+    await post(env, 'c', 3); // in PG only: a completed rebuild would add it to the key
+    const lbBefore = await env.redis.zrange(LB, 0, -1, 'WITHSCORES');
+    const metaBefore = await env.redis.hget(META, 'batch');
+    const lastBatch = async () =>
+      (await env.pool.query('SELECT last_batch FROM worker_state WHERE season_id = $1', [TEST_SEASON])).rows[0].last_batch;
+    const lastBatchBefore = await lastBatch();
+
+    // pipeline.exec() resolves even when a queued command fails: inject such a command.
+    await env.redis.set('not-a-number', 'x');
+    const faulty = new Proxy(env.redis, {
+      get(target, prop, receiver) {
+        if (prop !== 'pipeline') return Reflect.get(target, prop, receiver);
+        return () => target.pipeline().incr('not-a-number');
+      },
+    });
+
+    await expect(rebuildSeason(env.worker, faulty, TEST_SEASON, { force: true })).rejects.toThrow(/pipeline/);
+    expect(await env.redis.zrange(LB, 0, -1, 'WITHSCORES')).toEqual(lbBefore);
+    expect(await env.redis.hget(META, 'batch')).toBe(metaBefore);
+    expect(await lastBatch()).toBe(lastBatchBefore);
+    expect(await env.redis.exists(keys.rebuild(TEST_SEASON))).toBe(0); // temporary key cleaned up
+
+    // The lock was released: a normal rebuild succeeds and picks up 'c'.
+    await rebuildSeason(env.worker, env.redis, TEST_SEASON, { force: true });
+    expect(await topIds(env)).toEqual(['c', 'b', 'a']);
+  });
+
   it('blocks the worker while running and lets it drain afterwards', async () => {
     await post(env, 'a', 1);
     await drain(env);

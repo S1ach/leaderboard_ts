@@ -14,8 +14,14 @@ upsert AS (
   INSERT INTO player_scores (season_id, player_id, score, tie_seq)
   SELECT s.id, $1, $2, nextval('tie_seq') FROM s
   ON CONFLICT (season_id, player_id) DO UPDATE
+    -- nextval() again, not EXCLUDED.tie_seq: the value in EXCLUDED was taken before
+    -- this statement waited for the row lock, so with concurrent updates the order of
+    -- those values does not match the order the updates were applied in. The worker and
+    -- the Lua guard treat the largest tie_seq as the newest state, so an out-of-order
+    -- value would leave an intermediate score in Redis for good. Evaluated here, the
+    -- number is taken after the row is locked and therefore grows with the updates.
     SET score      = player_scores.score + EXCLUDED.score,
-        tie_seq    = EXCLUDED.tie_seq,
+        tie_seq    = nextval('tie_seq'),
         updated_at = now()
   RETURNING season_id, player_id, score, tie_seq
 )

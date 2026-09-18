@@ -214,11 +214,13 @@ docker compose -p lb-clean down -v
 
 ## Масштабирование
 
-- **API** stateless, `k8s/api.yaml`: Deployment с 2 репликами и HPA по CPU (70%, 2..20). Для production добавить RPS на под и p95 через Prometheus Adapter. `реплики × PG_POOL_SIZE` должно быть меньше `max_connections`; дальше PgBouncer.
+- **API** stateless, `k8s/api.yaml`: Deployment с 2 репликами и HPA по CPU (70%, от 2 до 10 подов). Потолок 10 задан соединениями PG: `10 × PG_POOL_SIZE 10 = 100` плюс воркеры и миграции укладываются в `max_connections = 200` с запасом, а при 20 подах пул API один занял бы весь лимит. Больше подов — только с PgBouncer. Для production добавить RPS на под и p95 через Prometheus Adapter.
 - **Воркер** (`k8s/worker.yaml`): 2 реплики, активна одна (leader lock), HPA не применяется — водяной знак требует одного последовательного писателя. Метрики на `:9100/metrics`: `outbox_backlog`, `outbox_lag_seconds`, счётчики пачек, ошибок и rebuild. Рост нагрузки — шардирование по `hash(player_id)` с воркером и водяным знаком на шард.
 - **Хранилища** HPA не масштабирует: чтения Redis — репликами, записи PG — вертикально.
 
-Применить: `kubectl apply -k k8s/` (образ `leaderboard-service:dev`, пароль в `configmap.yaml`).
+Применить: `kubectl apply -k k8s/` (образ `leaderboard-service:dev`, строка подключения в Secret в `configmap.yaml`).
+
+**Манифеста PostgreSQL в `k8s/` нет** — предполагается внешний managed PostgreSQL (RDS, Cloud SQL и т. п.) с бэкапами и репликой. Перед применением нужно указать его адрес и пароль в `DATABASE_URL` (Secret `leaderboard-secrets`) и убедиться, что `max_connections` не меньше 200 (см. расчёт выше). Redis в манифестах есть (`k8s/redis.yaml`), но одним экземпляром без реплики. `migrate-job.yaml` нужно дождаться до выкатки API: kustomize порядок запуска не гарантирует.
 
 ## Известные ограничения
 

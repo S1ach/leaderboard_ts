@@ -18,9 +18,9 @@
     "seed": "tsx src/cli/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "k6:write": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 grafana/k6:0.54.0 run /scripts/write.js",
-    "k6:read": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 grafana/k6:0.54.0 run /scripts/read.js",
-    "k6:mixed": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 grafana/k6:0.54.0 run /scripts/mixed.js"
+    "k6:write": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 -e PLAYERS -e DURATION -e RATE -e WRITE_RATE -e MAX_VUS grafana/k6:0.54.0 run /scripts/write.js",
+    "k6:read": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 -e PLAYERS -e DURATION -e RATE -e WRITE_RATE -e MAX_VUS grafana/k6:0.54.0 run /scripts/read.js",
+    "k6:mixed": "docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts -e BASE_URL=http://host.docker.internal:3000 -e PLAYERS -e DURATION -e RATE -e WRITE_RATE -e MAX_VUS grafana/k6:0.54.0 run /scripts/mixed.js"
   },
   "dependencies": {
     "fastify": "^5.1.0",

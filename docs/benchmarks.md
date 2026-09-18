@@ -20,7 +20,7 @@ docker run --rm -i --add-host=host.docker.internal:host-gateway -v ./k6:/scripts
 k6/sample-lag.sh > k6/results/mixed-1m-lag.txt   # параллельно, в другом терминале
 ```
 
-Переменные сценариев: `BASE_URL` (несколько адресов через запятую — так снят прогон с двумя инстансами), `PLAYERS` (диапазон id, должен быть не больше числа игроков в seed), `DURATION`, `RATE` для `write.js` и `read.js`, `WRITE_RATE` для `mixed.js` (чтения идут по `5 × WRITE_RATE` на top и rank), `MAX_VUS`. Скрипты `npm run k6:*` передают только `BASE_URL`, поэтому `PLAYERS` в них остаётся равным 100 000. Скрипт `k6/sample-lag.sh` **восстановлен по формату записанных файлов, исходный не сохранился**.
+Переменные сценариев: `BASE_URL` (несколько адресов через запятую — так снят прогон с двумя инстансами), `PLAYERS` (диапазон id, должен быть не больше числа игроков в seed), `DURATION`, `RATE` для `write.js` и `read.js`, `WRITE_RATE` для `mixed.js` (чтения идут по `5 × WRITE_RATE` на top и rank), `MAX_VUS`. Скрипты `npm run k6:*` пробрасывают `PLAYERS`, `DURATION`, `RATE`, `WRITE_RATE` и `MAX_VUS` из окружения; все три сценария с сохранением отчётов и лага запускает `k6/run-all.sh`. Скрипт `k6/sample-lag.sh` **восстановлен по формату записанных файлов, исходный не сохранился**.
 
 ## Как читать цифры
 

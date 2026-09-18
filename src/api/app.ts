@@ -32,7 +32,14 @@ function toEntries(flat: string[], firstRank: number): Entry[] {
 export function buildApp(deps: AppDeps): FastifyInstance {
   const { pg, redis } = deps;
   const seasons = deps.seasonCache ?? new SeasonCache(pg);
-  const app = Fastify({ logger: deps.logger ?? false });
+  const app = Fastify({
+    logger: deps.logger ?? false,
+    // The router rejects a path parameter longer than this before schema validation
+    // (414). It counts the URL-encoded length, where one character of player_id can
+    // take up to 12 characters (%XX per UTF-8 byte), so the limit is well above
+    // PLAYER_ID_MAX_LEN and the real limit is enforced by the schema, with 400.
+    routerOptions: { maxParamLength: config.playerIdMaxLen * 12 },
+  });
 
   /** Active season for reads, or null after replying 503 (no season, or PostgreSQL down with an empty cache). */
   async function activeSeason(req: FastifyRequest, reply: FastifyReply): Promise<Season | null> {

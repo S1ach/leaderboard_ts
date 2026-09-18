@@ -62,6 +62,25 @@ describe('GET /leaderboard/rank/:player_id', () => {
     expect(last.body.below).toEqual([]);
   });
 
+  it('accepts every player_id the contract allows, including Unicode', async () => {
+    const long = 'x'.repeat(128); // PLAYER_ID_MAX_LEN
+    const unicode = 'игрок /?#!' + '😀'.repeat(59); // exactly 128 UTF-16 units, 700+ characters once URL-encoded
+    for (const id of [long, unicode]) {
+      expect((await post(env, id, 7)).status).toBe(200);
+    }
+    await drain(env);
+    for (const id of [long, unicode]) {
+      const r = await rank(env, id);
+      expect({ id, status: r.status, score: r.body.player?.score }).toEqual({ id, status: 200, score: 7 });
+    }
+  });
+
+  it('rejects a too long player_id with 400 on both write and read', async () => {
+    const tooLong = 'x'.repeat(129);
+    expect((await post(env, tooLong, 1)).status).toBe(400);
+    expect((await rank(env, tooLong)).status).toBe(400);
+  });
+
   it('returns 404 for an unranked player and 400 for a bad n', async () => {
     await seed(1);
     expect((await rank(env, 'ghost')).status).toBe(404);

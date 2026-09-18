@@ -1,5 +1,7 @@
+import { Writable } from 'node:stream';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createEnv, destroyEnv, outboxCount, post, reset, type Env } from './helpers.js';
+import { buildApp } from '../src/api/app.js';
+import { createEnv, destroyEnv, outboxCount, post, reset, TEST_SEASON, type Env } from './helpers.js';
 
 let env: Env;
 beforeAll(async () => {
@@ -51,6 +53,26 @@ describe('POST /score', () => {
     const row = await env.pool.query(`SELECT score FROM player_scores WHERE player_id = 'big'`);
     expect(row.rows[0].score).toBe(2_000_000);
     expect(await outboxCount(env)).toBe(1);
+  });
+
+  it('logs every accepted score at info with player, delta, new score and season', async () => {
+    const lines: Record<string, unknown>[] = [];
+    const stream = new Writable({
+      write(chunk, _enc, cb) {
+        lines.push(JSON.parse(chunk.toString()));
+        cb();
+      },
+    });
+    const app = buildApp({ pg: env.pool, redis: env.redis, logger: { level: 'info', stream } });
+    try {
+      await app.inject({ method: 'POST', url: '/score', payload: { player_id: 'eve', score_delta: 7 } });
+      await app.inject({ method: 'POST', url: '/score', payload: { player_id: 'eve', score_delta: -2 } });
+    } finally {
+      await app.close();
+    }
+    const audit = lines.filter((l) => l.msg === 'score added');
+    expect(audit).toHaveLength(2);
+    expect(audit[1]).toMatchObject({ level: 30, player_id: 'eve', score_delta: -2, score: 5, season_id: TEST_SEASON });
   });
 
   it('returns 503 when there is no active season', async () => {

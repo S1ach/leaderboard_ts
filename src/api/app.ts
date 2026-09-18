@@ -85,6 +85,11 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     async (req, reply) => {
       try {
         const r = await addScore(pg, req.body.player_id, req.body.score_delta);
+        // Minimal audit trail (RFC-001 §7): who got how much, and the resulting score.
+        req.log.info(
+          { player_id: req.body.player_id, score_delta: req.body.score_delta, score: r.score, season_id: r.seasonId },
+          'score added',
+        );
         return { player_id: req.body.player_id, season_id: r.seasonId, score: r.score };
       } catch (e) {
         if (e instanceof NoActiveSeasonError) return reply.code(503).send({ error: 'no_active_season' });

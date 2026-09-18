@@ -27,7 +27,7 @@ curl -s 'localhost:3000/leaderboard/top?limit=10'
 # {"season_id":202609,"entries":[{"rank":1,"player_id":"alice","score":100}]}
 
 curl -s 'localhost:3000/leaderboard/rank/alice?n=5'
-# {"season_id":202609,"player":{"rank":1,...},"above":[],"below":[...]}
+# {"season_id":202609,"player":{"rank":1,"player_id":"alice","score":100},"above":[],"below":[]}
 ```
 
 Порты на хосте: API `3000`, метрики воркера `9100`, PostgreSQL `5433`, Redis `6380`. Если порт занят, достаточно переопределить переменную — её читают и compose, и приложение, и тесты:

@@ -1,0 +1,221 @@
+{
+  "date": "2026-09-18T10:32:27.066Z",
+  "results": [
+    {
+      "method": "POST",
+      "path": "/score",
+      "request": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "score_delta": 1
+      },
+      "expected": 200,
+      "status": 200,
+      "response": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "season_id": 209912,
+        "score": 1
+      },
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/leaderboard/rank/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expected": 200,
+      "status": 200,
+      "response": {
+        "season_id": 209912,
+        "player": {
+          "rank": 2,
+          "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "score": 1
+        },
+        "above": [
+          {
+            "rank": 1,
+            "player_id": "alice",
+            "score": 3
+          }
+        ],
+        "below": []
+      },
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/score",
+      "request": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "score_delta": 1
+      },
+      "expected": 200,
+      "status": 200,
+      "response": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "season_id": 209912,
+        "score": 1
+      },
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/leaderboard/rank/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expected": 200,
+      "status": 200,
+      "response": {
+        "season_id": 209912,
+        "player": {
+          "rank": 3,
+          "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "score": 1
+        },
+        "above": [
+          {
+            "rank": 1,
+            "player_id": "alice",
+            "score": 3
+          },
+          {
+            "rank": 2,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          }
+        ],
+        "below": []
+      },
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/score",
+      "request": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "score_delta": 1
+      },
+      "expected": 200,
+      "status": 200,
+      "response": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "season_id": 209912,
+        "score": 1
+      },
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/leaderboard/rank/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expected": 200,
+      "status": 200,
+      "response": {
+        "season_id": 209912,
+        "player": {
+          "rank": 4,
+          "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "score": 1
+        },
+        "above": [
+          {
+            "rank": 1,
+            "player_id": "alice",
+            "score": 3
+          },
+          {
+            "rank": 2,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 3,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          }
+        ],
+        "below": []
+      },
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/score",
+      "request": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "score_delta": 1
+      },
+      "expected": 400,
+      "status": 400,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body/player_id must NOT have more than 128 characters"
+      },
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/leaderboard/rank/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expected": 400,
+      "status": 400,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "params/player_id must NOT have more than 128 characters"
+      },
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/score",
+      "request": {
+        "player_id": "игрок /?#😀",
+        "score_delta": 1
+      },
+      "expected": 200,
+      "status": 200,
+      "response": {
+        "player_id": "игрок /?#😀",
+        "season_id": 209912,
+        "score": 1
+      },
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/leaderboard/rank/%D0%B8%D0%B3%D1%80%D0%BE%D0%BA%20%2F%3F%23%F0%9F%98%80",
+      "expected": 200,
+      "status": 200,
+      "response": {
+        "season_id": 209912,
+        "player": {
+          "rank": 5,
+          "player_id": "игрок /?#😀",
+          "score": 1
+        },
+        "above": [
+          {
+            "rank": 1,
+            "player_id": "alice",
+            "score": 3
+          },
+          {
+            "rank": 2,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 3,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 4,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          }
+        ],
+        "below": []
+      },
+      "pass": true
+    }
+  ]
+}

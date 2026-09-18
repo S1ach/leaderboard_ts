@@ -1,0 +1,2642 @@
+{
+  "started": "2026-09-18T10:31:43.822Z",
+  "finished": "2026-09-18T10:32:04.640Z",
+  "base": "http://127.0.0.1:13000",
+  "results": [
+    {
+      "name": "01: liveness/readiness and empty season",
+      "status": "PASS"
+    },
+    {
+      "name": "02: accumulate, negative score, tie order and neighbours",
+      "status": "PASS"
+    },
+    {
+      "name": "03: parallel updates and repeated request semantics",
+      "status": "PASS"
+    },
+    {
+      "name": "04: validation of all business endpoints",
+      "status": "PASS"
+    },
+    {
+      "name": "05: score bounds and rollback on overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "06: worker metrics and outbox drained",
+      "status": "PASS"
+    },
+    {
+      "name": "07: worker stopped → queued scores → delivery after start",
+      "status": "PASS"
+    },
+    {
+      "name": "08: Redis outage, write availability and recovery",
+      "status": "PASS"
+    },
+    {
+      "name": "09: PostgreSQL outage, cached reads and process recovery",
+      "status": "PASS"
+    },
+    {
+      "name": "10: API/worker restarts retain leaderboard",
+      "status": "PASS"
+    },
+    {
+      "name": "11: Redis data loss triggers automatic rebuild",
+      "status": "PASS"
+    },
+    {
+      "name": "12: no active season, rollover and historical scores",
+      "status": "PASS"
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/ready",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 58,
+      "response": {
+        "status": "ok",
+        "postgres": true,
+        "redis": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/health",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "status": "ok"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/ready",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "status": "ok",
+        "postgres": true,
+        "redis": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/missing",
+      "status": 404,
+      "expectedStatus": 404,
+      "ms": 3,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "alice",
+        "score_delta": 100
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 7,
+      "response": {
+        "player_id": "alice",
+        "season_id": 202609,
+        "score": 100
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "bob",
+        "score_delta": 100
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "player_id": "bob",
+        "season_id": 202609,
+        "score": 100
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "carol",
+        "score_delta": 50
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "player_id": "carol",
+        "season_id": 202609,
+        "score": 50
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "negative",
+        "score_delta": -5
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "player_id": "negative",
+        "season_id": 202609,
+        "score": -5
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 4,
+            "player_id": "negative",
+            "score": -5
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/bob?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 2,
+          "player_id": "bob",
+          "score": 100
+        },
+        "above": [
+          {
+            "rank": 1,
+            "player_id": "alice",
+            "score": 100
+          }
+        ],
+        "below": [
+          {
+            "rank": 3,
+            "player_id": "carol",
+            "score": 50
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "alice",
+        "score_delta": 50
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "player_id": "alice",
+        "season_id": 202609,
+        "score": 150
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "alice",
+        "score_delta": -50
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "player_id": "alice",
+        "season_id": 202609,
+        "score": 100
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 1,
+          "player_id": "alice",
+          "score": 100
+        },
+        "above": [],
+        "below": [
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 7,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 2,
+          "player_id": "alice",
+          "score": 100
+        },
+        "above": [
+          {
+            "rank": 1,
+            "player_id": "bob",
+            "score": 100
+          }
+        ],
+        "below": [
+          {
+            "rank": 3,
+            "player_id": "carol",
+            "score": 50
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/bob?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 1,
+          "player_id": "bob",
+          "score": 100
+        },
+        "above": [],
+        "below": [
+          {
+            "rank": 2,
+            "player_id": "alice",
+            "score": 100
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/negative?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 4,
+          "player_id": "negative",
+          "score": -5
+        },
+        "above": [
+          {
+            "rank": 3,
+            "player_id": "carol",
+            "score": 50
+          }
+        ],
+        "below": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=0",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 2,
+          "player_id": "alice",
+          "score": 100
+        },
+        "above": [],
+        "below": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top?limit=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "bob",
+            "score": 100
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top?limit=1000",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 2,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 4,
+            "player_id": "negative",
+            "score": -5
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=50",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 2,
+          "player_id": "alice",
+          "score": 100
+        },
+        "above": [
+          {
+            "rank": 1,
+            "player_id": "bob",
+            "score": 100
+          }
+        ],
+        "below": [
+          {
+            "rank": 3,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 4,
+            "player_id": "negative",
+            "score": -5
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 2,
+          "player_id": "alice",
+          "score": 100
+        },
+        "above": [
+          {
+            "rank": 1,
+            "player_id": "bob",
+            "score": 100
+          }
+        ],
+        "below": [
+          {
+            "rank": 3,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 4,
+            "player_id": "negative",
+            "score": -5
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "repeat",
+        "score_delta": 7
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "player_id": "repeat",
+        "season_id": 202609,
+        "score": 7
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "repeat",
+        "score_delta": 7
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "player_id": "repeat",
+        "season_id": 202609,
+        "score": 14
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 12,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 1
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 13,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 2
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 13,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 3
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 14,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 4
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 13,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 5
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 15,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 6
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 17,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 7
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 17,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 8
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 18,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 9
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 19,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 10
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 21,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 11
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 24,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 12
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 24,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 13
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 25,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 14
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 24,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 15
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 24,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 16
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 25,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 17
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 25,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 18
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 27,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 19
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "parallel",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 26,
+      "response": {
+        "player_id": "parallel",
+        "season_id": 202609,
+        "score": 20
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/parallel?n=1",
+      "status": 404,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/parallel?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 4,
+          "player_id": "parallel",
+          "score": 20
+        },
+        "above": [
+          {
+            "rank": 3,
+            "player_id": "carol",
+            "score": 50
+          }
+        ],
+        "below": [
+          {
+            "rank": 5,
+            "player_id": "repeat",
+            "score": 14
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {},
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 5,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body must have required property 'player_id'"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "x"
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 3,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body must have required property 'score_delta'"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "score_delta": 1
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 2,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body must have required property 'player_id'"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "",
+        "score_delta": 1
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body/player_id must NOT have fewer than 1 characters"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "score_delta": 1
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 2,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body/player_id must NOT have more than 128 characters"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "invalid",
+        "score_delta": 0
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body/score_delta must NOT be valid"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "invalid",
+        "score_delta": 1.5
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body/score_delta must be integer"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "invalid",
+        "score_delta": 2097152
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 2,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body/score_delta must be <= 2097151"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "invalid",
+        "score_delta": -2097152
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body/score_delta must be >= -2097151"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "invalid",
+        "score_delta": "bad"
+      },
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 2,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "body/score_delta must be integer"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top?limit=0",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/limit must be >= 1"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top?limit=-1",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/limit must be >= 1"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top?limit=1001",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/limit must be <= 1000"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top?limit=1.5",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 0,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/limit must be integer"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top?limit=bad",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/limit must be integer"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=-1",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 2,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/n must be >= 0"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=51",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 2,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/n must be <= 50"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=1.5",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 2,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/n must be integer"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=bad",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "querystring/n must be integer"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "status": 400,
+      "expectedStatus": 400,
+      "ms": 1,
+      "response": {
+        "statusCode": 400,
+        "code": "FST_ERR_VALIDATION",
+        "error": "Bad Request",
+        "message": "params/player_id must NOT have more than 128 characters"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "игрок /?#😀",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "player_id": "игрок /?#😀",
+        "season_id": 202609,
+        "score": 1
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/%D0%B8%D0%B3%D1%80%D0%BE%D0%BA%20%2F%3F%23%F0%9F%98%80?n=1",
+      "status": 404,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/%D0%B8%D0%B3%D1%80%D0%BE%D0%BA%20%2F%3F%23%F0%9F%98%80?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 6,
+          "player_id": "игрок /?#😀",
+          "score": 1
+        },
+        "above": [
+          {
+            "rank": 5,
+            "player_id": "repeat",
+            "score": 14
+          }
+        ],
+        "below": [
+          {
+            "rank": 7,
+            "player_id": "negative",
+            "score": -5
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "season_id": 202609,
+        "score": 1
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx?n=1",
+      "status": 404,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 7,
+          "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "score": 1
+        },
+        "above": [
+          {
+            "rank": 6,
+            "player_id": "игрок /?#😀",
+            "score": 1
+          }
+        ],
+        "below": [
+          {
+            "rank": 8,
+            "player_id": "negative",
+            "score": -5
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "max",
+        "score_delta": 2097151
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "player_id": "max",
+        "season_id": 202609,
+        "score": 2097151
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "max",
+        "score_delta": 1
+      },
+      "status": 422,
+      "expectedStatus": 422,
+      "ms": 2,
+      "response": {
+        "error": "score_out_of_range"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/max?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 1,
+          "player_id": "max",
+          "score": 2097151
+        },
+        "above": [],
+        "below": [
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "min",
+        "score_delta": -2097151
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "player_id": "min",
+        "season_id": 202609,
+        "score": -2097151
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "min",
+        "score_delta": -1
+      },
+      "status": 422,
+      "expectedStatus": 422,
+      "ms": 1,
+      "response": {
+        "error": "score_out_of_range"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/min?n=1",
+      "status": 404,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/min?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 10,
+          "player_id": "min",
+          "score": -2097151
+        },
+        "above": [
+          {
+            "rank": 9,
+            "player_id": "negative",
+            "score": -5
+          }
+        ],
+        "below": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:19100/metrics",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 10,
+      "response": "# TYPE outbox_backlog gauge\noutbox_backlog 0\n# TYPE outbox_lag_seconds gauge\noutbox_lag_seconds 0\n# TYPE worker_is_leader gauge\nworker_is_leader 1\n# TYPE worker_batches_total counter\nworker_batches_total 7\n# TYPE worker_events_total counter\nworker_events_total 32\n# TYPE worker_applied_total counter\nworker_applied_total 11\n# TYPE worker_errors_total counter\nworker_errors_total 0\n# TYPE worker_rebuilds_total counter\nworker_rebuilds_total 0\n"
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "queued",
+        "score_delta": 33
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "player_id": "queued",
+        "season_id": 202609,
+        "score": 33
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/queued",
+      "status": 404,
+      "expectedStatus": 404,
+      "ms": 2,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/queued?n=1",
+      "status": 404,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/queued?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 5,
+          "player_id": "queued",
+          "score": 33
+        },
+        "above": [
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          }
+        ],
+        "below": [
+          {
+            "rank": 6,
+            "player_id": "parallel",
+            "score": 20
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/health",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "status": "ok"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/ready",
+      "status": 503,
+      "expectedStatus": 503,
+      "ms": 61,
+      "response": {
+        "status": "degraded",
+        "postgres": true,
+        "redis": false
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 503,
+      "expectedStatus": 503,
+      "ms": 631,
+      "response": {
+        "error": "leaderboard_unavailable"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice",
+      "status": 503,
+      "expectedStatus": 503,
+      "ms": 1084,
+      "response": {
+        "error": "leaderboard_unavailable"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "redis-down",
+        "score_delta": 44
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "player_id": "redis-down",
+        "season_id": 202609,
+        "score": 44
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/redis-down?n=1",
+      "status": 404,
+      "expectedStatus": 200,
+      "ms": 242,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/redis-down?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 5,
+          "player_id": "redis-down",
+          "score": 44
+        },
+        "above": [
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          }
+        ],
+        "below": [
+          {
+            "rank": 6,
+            "player_id": "queued",
+            "score": 33
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/ready",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "status": "ok",
+        "postgres": true,
+        "redis": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "max",
+            "score": 2097151
+          },
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 5,
+            "player_id": "redis-down",
+            "score": 44
+          },
+          {
+            "rank": 6,
+            "player_id": "queued",
+            "score": 33
+          },
+          {
+            "rank": 7,
+            "player_id": "parallel",
+            "score": 20
+          },
+          {
+            "rank": 8,
+            "player_id": "repeat",
+            "score": 14
+          },
+          {
+            "rank": 9,
+            "player_id": "игрок /?#😀",
+            "score": 1
+          },
+          {
+            "rank": 10,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 11,
+            "player_id": "negative",
+            "score": -5
+          },
+          {
+            "rank": 12,
+            "player_id": "min",
+            "score": -2097151
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/health",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "status": "ok"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/ready",
+      "status": 503,
+      "expectedStatus": 503,
+      "ms": 10,
+      "response": {
+        "status": "degraded",
+        "postgres": false,
+        "redis": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 7,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "max",
+            "score": 2097151
+          },
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 5,
+            "player_id": "redis-down",
+            "score": 44
+          },
+          {
+            "rank": 6,
+            "player_id": "queued",
+            "score": 33
+          },
+          {
+            "rank": 7,
+            "player_id": "parallel",
+            "score": 20
+          },
+          {
+            "rank": 8,
+            "player_id": "repeat",
+            "score": 14
+          },
+          {
+            "rank": 9,
+            "player_id": "игрок /?#😀",
+            "score": 1
+          },
+          {
+            "rank": 10,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 11,
+            "player_id": "negative",
+            "score": -5
+          },
+          {
+            "rank": 12,
+            "player_id": "min",
+            "score": -2097151
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 3,
+          "player_id": "alice",
+          "score": 100
+        },
+        "above": [
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          }
+        ],
+        "below": [
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "pg-down",
+        "score_delta": 1
+      },
+      "status": 503,
+      "expectedStatus": 503,
+      "ms": 6,
+      "response": {
+        "error": "storage_unavailable"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/ready",
+      "status": 503,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "status": "degraded",
+        "postgres": false,
+        "redis": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/ready",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "status": "ok",
+        "postgres": true,
+        "redis": true
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "pg-down",
+        "score_delta": 1
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "player_id": "pg-down",
+        "season_id": 202609,
+        "score": 1
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/pg-down?n=1",
+      "status": 404,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/pg-down?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "season_id": 202609,
+        "player": {
+          "rank": 11,
+          "player_id": "pg-down",
+          "score": 1
+        },
+        "above": [
+          {
+            "rank": 10,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          }
+        ],
+        "below": [
+          {
+            "rank": 12,
+            "player_id": "negative",
+            "score": -5
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "max",
+            "score": 2097151
+          },
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 5,
+            "player_id": "redis-down",
+            "score": 44
+          },
+          {
+            "rank": 6,
+            "player_id": "queued",
+            "score": 33
+          },
+          {
+            "rank": 7,
+            "player_id": "parallel",
+            "score": 20
+          },
+          {
+            "rank": 8,
+            "player_id": "repeat",
+            "score": 14
+          },
+          {
+            "rank": 9,
+            "player_id": "игрок /?#😀",
+            "score": 1
+          },
+          {
+            "rank": 10,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 11,
+            "player_id": "pg-down",
+            "score": 1
+          },
+          {
+            "rank": 12,
+            "player_id": "negative",
+            "score": -5
+          },
+          {
+            "rank": 13,
+            "player_id": "min",
+            "score": -2097151
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/ready",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 13,
+      "response": {
+        "status": "ok",
+        "postgres": true,
+        "redis": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "max",
+            "score": 2097151
+          },
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 5,
+            "player_id": "redis-down",
+            "score": 44
+          },
+          {
+            "rank": 6,
+            "player_id": "queued",
+            "score": 33
+          },
+          {
+            "rank": 7,
+            "player_id": "parallel",
+            "score": 20
+          },
+          {
+            "rank": 8,
+            "player_id": "repeat",
+            "score": 14
+          },
+          {
+            "rank": 9,
+            "player_id": "игрок /?#😀",
+            "score": 1
+          },
+          {
+            "rank": 10,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 11,
+            "player_id": "pg-down",
+            "score": 1
+          },
+          {
+            "rank": 12,
+            "player_id": "negative",
+            "score": -5
+          },
+          {
+            "rank": 13,
+            "player_id": "min",
+            "score": -2097151
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "max",
+            "score": 2097151
+          },
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 5,
+            "player_id": "redis-down",
+            "score": 44
+          },
+          {
+            "rank": 6,
+            "player_id": "queued",
+            "score": 33
+          },
+          {
+            "rank": 7,
+            "player_id": "parallel",
+            "score": 20
+          },
+          {
+            "rank": 8,
+            "player_id": "repeat",
+            "score": 14
+          },
+          {
+            "rank": 9,
+            "player_id": "игрок /?#😀",
+            "score": 1
+          },
+          {
+            "rank": 10,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 11,
+            "player_id": "pg-down",
+            "score": 1
+          },
+          {
+            "rank": 12,
+            "player_id": "negative",
+            "score": -5
+          },
+          {
+            "rank": 13,
+            "player_id": "min",
+            "score": -2097151
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 7,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 8,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 7,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 7,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 12,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 3,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 4,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "season_id": 202609,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "max",
+            "score": 2097151
+          },
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 5,
+            "player_id": "redis-down",
+            "score": 44
+          },
+          {
+            "rank": 6,
+            "player_id": "queued",
+            "score": 33
+          },
+          {
+            "rank": 7,
+            "player_id": "parallel",
+            "score": 20
+          },
+          {
+            "rank": 8,
+            "player_id": "repeat",
+            "score": 14
+          },
+          {
+            "rank": 9,
+            "player_id": "игрок /?#😀",
+            "score": 1
+          },
+          {
+            "rank": 10,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 11,
+            "player_id": "pg-down",
+            "score": 1
+          },
+          {
+            "rank": 12,
+            "player_id": "negative",
+            "score": -5
+          },
+          {
+            "rank": 13,
+            "player_id": "min",
+            "score": -2097151
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 2,
+      "response": {
+        "season_id": 202609,
+        "entries": [
+          {
+            "rank": 1,
+            "player_id": "max",
+            "score": 2097151
+          },
+          {
+            "rank": 2,
+            "player_id": "bob",
+            "score": 100
+          },
+          {
+            "rank": 3,
+            "player_id": "alice",
+            "score": 100
+          },
+          {
+            "rank": 4,
+            "player_id": "carol",
+            "score": 50
+          },
+          {
+            "rank": 5,
+            "player_id": "redis-down",
+            "score": 44
+          },
+          {
+            "rank": 6,
+            "player_id": "queued",
+            "score": 33
+          },
+          {
+            "rank": 7,
+            "player_id": "parallel",
+            "score": 20
+          },
+          {
+            "rank": 8,
+            "player_id": "repeat",
+            "score": 14
+          },
+          {
+            "rank": 9,
+            "player_id": "игрок /?#😀",
+            "score": 1
+          },
+          {
+            "rank": 10,
+            "player_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "score": 1
+          },
+          {
+            "rank": 11,
+            "player_id": "pg-down",
+            "score": 1
+          },
+          {
+            "rank": 12,
+            "player_id": "negative",
+            "score": -5
+          },
+          {
+            "rank": 13,
+            "player_id": "min",
+            "score": -2097151
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "no-season",
+        "score_delta": 1
+      },
+      "status": 503,
+      "expectedStatus": 503,
+      "ms": 9,
+      "response": {
+        "error": "no_active_season"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 503,
+      "expectedStatus": 503,
+      "ms": 2,
+      "response": {
+        "error": "no_active_season"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice",
+      "status": 503,
+      "expectedStatus": 503,
+      "ms": 1,
+      "response": {
+        "error": "no_active_season"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/top",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 6,
+      "response": {
+        "season_id": 209912,
+        "entries": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice",
+      "status": 404,
+      "expectedStatus": 404,
+      "ms": 2,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:13000/score",
+      "request": {
+        "player_id": "alice",
+        "score_delta": 3
+      },
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "player_id": "alice",
+        "season_id": 209912,
+        "score": 3
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=1",
+      "status": 404,
+      "expectedStatus": 200,
+      "ms": 1,
+      "response": {
+        "error": "player_not_ranked"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:13000/leaderboard/rank/alice?n=1",
+      "status": 200,
+      "expectedStatus": 200,
+      "ms": 5,
+      "response": {
+        "season_id": 209912,
+        "player": {
+          "rank": 1,
+          "player_id": "alice",
+          "score": 3
+        },
+        "above": [],
+        "below": []
+      }
+    }
+  ]
+}

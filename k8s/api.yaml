@@ -45,7 +45,7 @@ spec:
   ports:
     - { port: 80, targetPort: http }
 ---
-# RFC-001 §3.2: start with CPU; in production add RPS-per-pod / p95 latency via Prometheus Adapter.
+# design.md §3.2: start with CPU; in production add RPS-per-pod / p95 latency via Prometheus Adapter.
 # maxReplicas is bounded by PostgreSQL connections, not CPU: 10 pods x PG_POOL_SIZE 10 = 100,
 # plus workers and migrations, fits max_connections = 200. Go higher only behind PgBouncer.
 apiVersion: autoscaling/v2

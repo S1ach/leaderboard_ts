@@ -3,10 +3,10 @@ info:
   title: Leaderboard Service
   version: 1.0.0
   description: >-
-    Seasonal game leaderboard. Design and rationale: docs/RFC-001-leaderboard.md.
+    Seasonal game leaderboard. Design and rationale: docs/design.md.
     This file is maintained by hand and kept in sync with src/api/app.ts.
     Worker metrics are not part of this API: the outbox worker exposes
-    GET /metrics on its own port (9100 by default), see RFC section 3.4.
+    GET /metrics on its own port (9100 by default), see docs/design.md section 3.4.
 paths:
   /score:
     post:

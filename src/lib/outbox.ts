@@ -47,7 +47,7 @@ export function collapse(rows: OutboxRow[]): Map<number, Map<string, OutboxRow>>
 }
 
 /**
- * One worker iteration (RFC-001 §4.4). `client` must be a dedicated
+ * One worker iteration (design.md §4.4). `client` must be a dedicated
  * connection: the batch transaction, the shared rebuild lock and the leader
  * lock all live on the same session, so losing it loses everything at once.
  */

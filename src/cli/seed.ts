@@ -1,5 +1,5 @@
 // Usage: npm run seed -- --players 1000000 [--season 202609] [--max-score 100000]
-// Bulk-loads players via COPY, bypassing the outbox. RFC-001 §4.4 "Записи в обход
+// Bulk-loads players via COPY, bypassing the outbox. design.md §4.4 "Записи в обход
 // outbox": afterwards tie_seq is advanced past the seeded values and a forced
 // rebuild is run so the watermark covers the seeded data.
 import { pipeline } from 'node:stream/promises';

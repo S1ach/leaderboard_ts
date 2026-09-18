@@ -1,5 +1,5 @@
 /**
- * RFC-001 §2.2. Tie-break is encoded into the sorted-set score:
+ * design.md §2.2. Tie-break is encoded into the sorted-set score:
  *
  *   tie_local   = tie_seq - season.tie_base            (0 … 2^32-1)
  *   redis_score = score * 2^32 + (2^32 - 1 - tie_local)

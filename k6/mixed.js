@@ -1,4 +1,4 @@
-// Scenario "mixed": 10 reads : 1 write (RFC-001 §6.1).
+// Scenario "mixed": 10 reads : 1 write (design.md §6.1).
 import { postScore, getTop, getRank, thresholds, summaryTrendStats } from './common.js';
 
 const WRITE_RATE = Number(__ENV.WRITE_RATE || 1000);

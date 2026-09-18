@@ -1,4 +1,4 @@
-# Single Redis for the read model (RFC-001 §3.3 settings). For production use a
+# Single Redis for the read model (design.md §3.3 settings). For production use a
 # managed Redis or an operator with replicas; a failover to a lagging replica is
 # detected by the watermark and repaired by a rebuild.
 apiVersion: apps/v1

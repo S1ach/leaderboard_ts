@@ -26,11 +26,11 @@ export async function querySeason(db: PgPool | PgClient, id: number): Promise<Se
 }
 
 /**
- * Active season for reads (RFC-001 §4.4 "Чтения"): cached for a short TTL. At a season
+ * Active season for reads (design.md §4.4 "Чтения"): cached for a short TTL. At a season
  * boundary reads may lag by up to the TTL. A negative result is cached too.
  *
  * If PostgreSQL is unavailable, the last known value is served so reads keep working
- * from Redis (RFC-001 §3.3). Only when nothing was ever loaded does get() reject.
+ * from Redis (design.md §3.3). Only when nothing was ever loaded does get() reject.
  */
 export class SeasonCache {
   private value: Season | null = null;

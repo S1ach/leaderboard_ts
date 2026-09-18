@@ -1,7 +1,0 @@
-outbox_backlog 79 outbox_lag_seconds 0.17119 
-outbox_backlog 48 outbox_lag_seconds 0.051053 
-outbox_backlog 15 outbox_lag_seconds 0.018121 
-outbox_backlog 62 outbox_lag_seconds 0.061946 
-outbox_backlog 32 outbox_lag_seconds 0.033586 
-outbox_backlog 26 outbox_lag_seconds 0.027961 
-outbox_backlog 36 outbox_lag_seconds 0.042214 

@@ -1,4 +1,4 @@
-// Scenario "write": up to 1000 POST /score per second (RFC-001 §6.1).
+// Scenario "write": up to 1000 POST /score per second (design.md §6.1).
 import { postScore, thresholds, summaryTrendStats } from './common.js';
 
 const RATE = Number(__ENV.RATE || 1000);

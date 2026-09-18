@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeScore, encodeScore, SCORE_ABS_LIMIT, TIE_MAX, TWO_32 } from '../src/lib/encoding.js';
 
-describe('score encoding (RFC-001 §2.2)', () => {
+describe('score encoding (design.md §2.2)', () => {
   it('round-trips positive, zero and negative scores', () => {
     for (const score of [0, 1, 42, -1, -42, SCORE_ABS_LIMIT - 1, -(SCORE_ABS_LIMIT - 1)]) {
       for (const tie of [0, 1, 123_456_789, TIE_MAX]) {
